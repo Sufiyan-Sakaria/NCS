@@ -45,7 +45,7 @@ This initial release establishes the foundational features across both the front
 
 1. Clone the repository:
    ```sh
-   git clone (https://github.com/Sufiyan-Sakaria/NCS.git)
+   git clone https://github.com/Sufiyan-Sakaria/NCS.git
    cd backend
    ```
 2. Install dependencies:
