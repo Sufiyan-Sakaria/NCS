@@ -37,6 +37,7 @@ model Branch {
   Godown           Godown[]
   Unit             Unit[]
   ProductLedger    ProductLedger[]
+  Journal          Journal[]
 
   @@index([companyId])
 }
@@ -50,6 +51,7 @@ model FinancialYear {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   ProductLedger ProductLedger[]
+  Journal       Journal[]
 
   @@index([companyId])
 }
@@ -233,6 +235,7 @@ model AccountGroup {
   parent    AccountGroup?      @relation("GroupHierarchy", fields: [parentId], references: [id])
   parentId  String?
   children  AccountGroup[]     @relation("GroupHierarchy")
+  Ledger    Ledger[]
   createdBy String?
   updatedBy String?
   isActive  Boolean            @default(true)
@@ -297,8 +300,106 @@ enum LedgerEntryType {
 }
 
 model Ledger {
-  id   String @id @default(uuid())
-  name String @unique
-  code String @unique
-  type LedgerType
+  id             String         @id @default(uuid())
+  name           String         @unique
+  code           String         @unique
+  type           LedgerType
+  phone1         String
+  phone2         String
+  balance        Decimal
+  openingBalance Decimal
+  accountGroup   AccountGroup   @relation(fields: [accountGroupId], references: [id])
+  accountGroupId String
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  JournalEntry   JournalEntry[]
+
+  @@index([accountGroupId])
+}
+
+enum LedgerType {
+  // Assets
+  Cash
+  Bank
+  AccountsReceivable
+  Inventory
+  FixedAssets
+  PrepaidExpenses
+  AdvanceToSuppliers
+
+  // Liabilities
+  AccountsPayable
+  AccruedExpenses
+  LoansPayable
+  GSTPayable
+  TDSPayable
+  AdvanceFromCustomers
+
+  // Capital
+  OwnerCapital
+  RetainedEarnings
+  Drawings
+  Reserves
+
+  // Income
+  Sales
+  InterestIncome
+  CommissionReceived
+  RentalIncome
+  OtherIncome
+
+  // Expenses
+  Purchase
+  Wages
+  Rent
+  Electricity
+  Telephone
+  Transportation
+  RepairsAndMaintenance
+  Depreciation
+  MiscellaneousExpenses
+}
+
+model Journal {
+  id              String         @id @default(uuid())
+  label           String
+  date            DateTime
+  financialYear   FinancialYear  @relation(fields: [financialYearId], references: [id], onDelete: Cascade)
+  financialYearId String
+  branch          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId        String
+  entries         JournalEntry[]
+  narration       String?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([financialYearId])
+  @@index([branchId])
+}
+
+model JournalEntry {
+  id        String    @id @default(uuid())
+  journal   Journal   @relation(fields: [journalId], references: [id])
+  journalId String
+  ledger    Ledger    @relation(fields: [ledgerId], references: [id])
+  ledgerId  String
+  type      EntryType
+  amount    Float
+  narration String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([journalId])
+  @@index([ledgerId])
+}
+
+enum EntryType {
+  DEBIT
+  CREDIT
 }
