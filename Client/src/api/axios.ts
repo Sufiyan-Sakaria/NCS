@@ -1,4 +1,3 @@
-// src/api/axios.ts
 import axios from "axios";
 
 const api = axios.create({
@@ -38,7 +37,16 @@ api.interceptors.response.use(
 
 export const GetAllCompanies = async () => {
   try {
-    const response = await api.get("/api/company");
+    const response = await api.get("/company");
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const GetCompanyById = async (companyId: string) => {
+  try {
+    const response = await api.get(`/company/${companyId}`);
     return response.data;
   } catch (error) {
     throw error;
@@ -47,7 +55,7 @@ export const GetAllCompanies = async () => {
 
 export const GetAllBranchesByCompany = async (companyId: string) => {
   try {
-    const response = await api.get(`/api/branch/company/${companyId}`);
+    const response = await api.get(`/branch/company/${companyId}`);
     return response.data;
   } catch (error) {
     throw error;
@@ -57,11 +65,19 @@ export const GetAllBranchesByCompany = async (companyId: string) => {
 export const GetBranchesByUser = async () => {
   try {
     const response = await api.get(
-      "/api/branch/user/ff4680fd-81fa-44d0-88d6-2ca765254409"
+      "/branch/user/ff4680fd-81fa-44d0-88d6-2ca765254409"
     );
     return response.data;
   } catch (error) {
     throw error;
   }
 };
-export default api;
+
+export const Login = async (data: { email: string; password: string }) => {
+  try {
+    const response = await api.post("/auth/login", data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
