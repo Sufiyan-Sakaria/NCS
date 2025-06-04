@@ -4,6 +4,7 @@ import HomePage from "./pages/Home";
 import { ThemeProvider } from "./utils/ThemeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import Login from "./pages/Login";
 
 const queryClient = new QueryClient();
 
@@ -13,6 +14,7 @@ function App() {
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <Router>
           <Routes>
+            <Route path="/auth/login" element={<Login />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<HomePage />} />
             </Route>

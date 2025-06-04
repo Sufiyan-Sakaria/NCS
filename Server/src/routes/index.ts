@@ -4,6 +4,7 @@ const router = express.Router();
 import Company from "./Company";
 import User from "./User";
 import Branch from "./Branch";
+import Auth from "./Auth";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -17,5 +18,8 @@ router.use("/user", User);
 
 // Branch Routes
 router.use("/branch", Branch);
+
+// Auth Routes
+router.use("/auth", Auth);
 
 export default router;

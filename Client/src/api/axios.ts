@@ -45,10 +45,19 @@ export const GetAllCompanies = async () => {
   }
 };
 
+export const GetAllBranchesByCompany = async (companyId: string) => {
+  try {
+    const response = await api.get(`/api/branch/company/${companyId}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const GetBranchesByUser = async () => {
   try {
     const response = await api.get(
-      "/api/branch/user/157b8fdf-ecd9-4b87-b87c-f560e2e96757"
+      "/api/branch/user/ff4680fd-81fa-44d0-88d6-2ca765254409"
     );
     return response.data;
   } catch (error) {

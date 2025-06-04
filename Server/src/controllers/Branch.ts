@@ -195,7 +195,7 @@ export const createBranch = async (
 
     if (!name || !address || !companyId) {
       return next(
-        new AppError("Name, address, and companyId are required", 400)
+        new AppError("name, address, and companyId are required", 400)
       );
     }
 
