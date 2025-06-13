@@ -1,26 +1,57 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { PrismaClient } from "../../generated/prisma";
+import { AppError } from "../utils/AppError";
+
+const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
-  user?: { userId: string; role: string };
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    companyId: string;
+  };
 }
 
-export const protect = (
+export const protect = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "Unauthorized" });
+    const token = req.cookies.token;
+    if (!token) {
+      return next(new AppError("Unauthorized - No token provided", 401));
+    }
 
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      userId: string;
+      id: string;
+      email: string;
       role: string;
+      companyId: string;
     };
-    req.user = decoded;
+
+    // Check if user still exists and is active
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user || !user.isActive) {
+      return next(new AppError("Unauthorized - User not found", 401));
+    }
+
+    // Attach user to request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+    };
+
     next();
-  } catch {
-    res.status(401).json({ message: "Invalid or expired token" });
+  } catch (error) {
+    return next(new AppError("Invalid or expired token", 401));
   }
 };
