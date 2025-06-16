@@ -18,6 +18,7 @@ import { login } from "@/services/auth"
 import { useRouter } from "next/navigation"
 import { useDispatch } from "react-redux"
 import { setUser } from "@/redux/slices/authSlice"
+import { useLogin } from "@/hooks/UseAuthMutation"
 
 export function LoginForm({
     className,
@@ -38,31 +39,14 @@ export function LoginForm({
         }))
     }
 
-    const { mutate, isPending } = useMutation({
-        mutationFn: login,
+    const { mutate, isPending } = useLogin({
         onSuccess: (data) => {
-            // Save user data to Redux
-            dispatch(setUser({
-                id: data.user.id,
-                name: data.user.name,
-                email: data.user.email,
-                role: data.user.role,
-                companyId: data.user.companyId,
-                branches: data.branches
-            }))
-
-            // Show success message
-            toast.success("Login successful!")
-
-            // Navigate after state update is complete
-            setTimeout(() => {
-                router.push("/dashboard")
-            }, 0)
+            if (data.user && data.branches) {
+                dispatch(setUser({ ...data.user, branches: data.branches }));
+            }
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || "Login failed. Please try again.")
-        },
-    })
+    });
+
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()

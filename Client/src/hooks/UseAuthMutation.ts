@@ -14,18 +14,23 @@ export const useLogin = (
 
   return useMutation({
     mutationFn: login,
-    onSuccess: (data) => {
+    onSuccess: (data, variables, context) => {
       if (data.success) {
         toast.success("Login successful");
         router.push("/dashboard");
       } else {
         toast.error(data.message || "Login failed");
       }
+
+      // Call user's custom onSuccess if exists
+      options?.onSuccess?.(data, variables, context);
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
       toast.error(error.message || "Login failed");
+
+      // Call user's custom onError if exists
+      options?.onError?.(error, variables, context);
     },
-    ...options,
   });
 };
 
