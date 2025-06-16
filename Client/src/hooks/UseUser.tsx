@@ -1,24 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import {
-    getUser,
-    updateUser,
-} from "@/lib/api/auth"
+import { useQuery } from "@tanstack/react-query";
+import { getUser } from "@/services/user";
 
 export const useUserQuery = () => {
-    return useQuery({
-        queryKey: ["user"],
-        queryFn: getUser,
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        retry: false,
-    })
-}
-
-export const useUpdateUserMutation = () => {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: updateUser,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["user"] })
-        },
-    })
-}
+  return useQuery({
+    queryKey: ["user"],
+    queryFn: getUser,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false,
+  });
+};

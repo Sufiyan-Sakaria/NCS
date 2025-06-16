@@ -1,3 +1,5 @@
+"use client";
+
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   Breadcrumb,
@@ -8,13 +10,15 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
-import {
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { ReactNode } from "react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import React, { ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const segments = pathname.split("/").filter(Boolean);
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
@@ -31,13 +35,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               />
               <Breadcrumb>
                 <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="#">Dashboard</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Overview</BreadcrumbPage>
-                  </BreadcrumbItem>
+                  {segments.map((segment, index) => {
+                    const isLast = index === segments.length - 1;
+                    const href = "/" + segments.slice(0, index + 1).join("/");
+
+                    return (
+                      <React.Fragment key={href}>
+                        {index !== 0 && <BreadcrumbSeparator />}
+                        <BreadcrumbItem>
+                          {isLast ? (
+                            <BreadcrumbPage>
+                              {formatSegment(segment)}
+                            </BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink asChild>
+                              <Link href={href}>{formatSegment(segment)}</Link>
+                            </BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                      </React.Fragment>
+                    );
+                  })}
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
@@ -47,4 +65,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
     </SidebarProvider>
   );
+}
+
+// Optional: Convert `sale-invoice` to `Sale Invoice`
+function formatSegment(segment: string) {
+  return segment
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
