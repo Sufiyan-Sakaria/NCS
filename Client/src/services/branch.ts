@@ -11,3 +11,8 @@ export const createBranch = async (payload: CreateBranchPayload) => {
   const response: AxiosResponse = await api.post("/branch", payload);
   return response.data.data;
 };
+
+export const getBranches = async () => {
+  const response: AxiosResponse = await api.get("/branch");
+  return response.data.data;
+};

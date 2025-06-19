@@ -31,9 +31,11 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
-import { MoreVertical, Pencil, Trash } from "lucide-react";
+import { MoreVertical, Pencil, Plus, Trash } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { AddUserDialog } from "@/components/AddUserDialog";
 
 const Page: NextPage = () => {
   const { data: users, isLoading, error } = useUserQuery();
@@ -80,7 +82,14 @@ const Page: NextPage = () => {
 
   return (
     <main className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Users</h1>
+      <div className="flex justify-between mx-4">
+        <h1 className="text-2xl font-semibold mb-6">Users</h1>
+        <AddUserDialog trigger={
+          <Button className="cursor-pointer">
+            <Plus className="mr-2 h-4 w-4" /> Add User
+          </Button>
+        } />
+      </div>
       <div className="rounded-md border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>

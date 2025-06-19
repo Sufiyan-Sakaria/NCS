@@ -4,11 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export const useLogin = (
-  options?: UseMutationOptions<
-    AuthResponse,
-    Error,
-    { email: string; password: string }
-  >
+  options?: UseMutationOptions<AuthResponse, Error, { email: string; password: string }>,
 ) => {
   const router = useRouter();
 
@@ -34,9 +30,7 @@ export const useLogin = (
   });
 };
 
-export const useVerify = (
-  options?: UseMutationOptions<AuthResponse, Error, void>
-) => {
+export const useVerify = (options?: UseMutationOptions<AuthResponse, Error, void>) => {
   return useMutation({
     mutationFn: verify,
     onError: (error) => {

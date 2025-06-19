@@ -14,6 +14,8 @@ export interface AuthResponse {
     email: string;
     role: string;
     companyId: string;
+    createdAt: Date;
+    updatedAt: Date;
   };
   branches?: Array<{
     id: string;
@@ -23,13 +25,8 @@ export interface AuthResponse {
   message?: string;
 }
 
-export const login = async (
-  credentials: LoginCredentials
-): Promise<AuthResponse> => {
-  const response: AxiosResponse<AuthResponse> = await api.post(
-    "/auth/login",
-    credentials
-  );
+export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  const response: AxiosResponse<AuthResponse> = await api.post("/auth/login", credentials);
   return response.data;
 };
 
