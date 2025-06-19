@@ -1,27 +1,17 @@
-// redux/slices/authSlice.ts
+import { User } from "@/types/User";
+import { Branch } from "@/types/Branch";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  companyId: string;
-  branches: Array<{
-    id: string;
-    name: string;
-    address: string;
-  }>;
-}
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  selectedBranchId: string | null;
 }
 
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
+  selectedBranchId: null,
 };
 
 export const authSlice = createSlice({
@@ -35,9 +25,24 @@ export const authSlice = createSlice({
     clearUser: (state) => {
       state.user = null;
       state.isAuthenticated = false;
+      state.selectedBranchId = null;
+    },
+    setSelectedBranch: (state, action: PayloadAction<string>) => {
+      state.selectedBranchId = action.payload;
+    },
+    addBranch: (state, action: PayloadAction<Branch>) => {
+      if (state.user) {
+        state.user.branches.push(action.payload);
+      }
     },
   },
 });
 
-export const { setUser, clearUser } = authSlice.actions;
+export const {
+  setUser,
+  clearUser,
+  setSelectedBranch,
+  addBranch,
+} = authSlice.actions;
+
 export default authSlice.reducer;

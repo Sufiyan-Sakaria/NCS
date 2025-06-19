@@ -1,5 +1,5 @@
 import { Navlink } from "@/types/NavLink";
-import { PieChart, BookOpen, Bot, Settings2, User } from "lucide-react";
+import { BadgeCheck, LayoutGrid, PieChart, User } from "lucide-react";
 
 export const navLinks: Navlink[] = [
   {
@@ -11,5 +11,15 @@ export const navLinks: Navlink[] = [
     label: "Users",
     icon: User,
     url: "/dashboard/user",
+  },
+  {
+    label: "Brands",
+    icon: BadgeCheck,
+    url: "/dashboard/brand",
+  },
+  {
+    label: "Categories",
+    icon: LayoutGrid,
+    url: "/dashboard/category",
   },
 ];

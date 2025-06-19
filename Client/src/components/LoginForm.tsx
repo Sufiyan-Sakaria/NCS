@@ -18,7 +18,7 @@ import { login } from "@/services/auth"
 import { useRouter } from "next/navigation"
 import { useDispatch } from "react-redux"
 import { setUser } from "@/redux/slices/authSlice"
-import { useLogin } from "@/hooks/UseAuthMutation"
+import { useLogin } from "@/hooks/UseAuth"
 
 export function LoginForm({
     className,

@@ -59,8 +59,15 @@ export default function UserChartPage() {
           <ChartContainer config={chartConfig} className="w-full h-full">
             <BarChart data={chartData}>
               <CartesianGrid vertical={false} />
-              <XAxis dataKey="role" tickLine={false} tickMargin={2} />
-              <YAxis allowDecimals={false} tickLine={false} tickMargin={2} />
+              <XAxis
+                dataKey="role"
+                tickLine={false}
+                tickMargin={2}
+                tickFormatter={(value) =>
+                  value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+                }
+              />
+              <YAxis allowDecimals={false} tickLine={false} tickMargin={5} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="count" fill="var(--color-count)" radius={4} />
             </BarChart>

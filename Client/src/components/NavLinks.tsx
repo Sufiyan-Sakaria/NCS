@@ -25,12 +25,12 @@ export function Navlinks({ links }: { links: Navlink[] }) {
   const { isMobile } = useSidebar();
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+    <SidebarGroup>
+      <SidebarGroupLabel>Links</SidebarGroupLabel>
       <SidebarMenu>
         {links.map((item) => (
           <SidebarMenuItem key={item.label}>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton asChild tooltip={item.label}>
               <Link href={item.url}>
                 {item.icon && <item.icon />}
                 <span>{item.label}</span>

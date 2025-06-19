@@ -57,19 +57,22 @@ model FinancialYear {
 }
 
 model User {
-  id        String             @id @default(uuid())
-  name      String
-  email     String             @unique
-  password  String
-  role      Role
-  company   Company            @relation(fields: [companyId], references: [id])
-  companyId String
-  access    UserBranchAccess[]
-  createdBy String?
-  updatedBy String?
-  isActive  Boolean            @default(true)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id            String             @id @default(uuid())
+  name          String
+  email         String             @unique
+  password      String
+  role          Role
+  company       Company            @relation(fields: [companyId], references: [id])
+  companyId     String
+  access        UserBranchAccess[]
+  createdBy     String?
+  updatedBy     String?
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  Brand         Brand[]
+  createdBrands Brand[]            @relation("BrandCreatedBy")
+  updatedBrands Brand[]            @relation("BrandUpdatedBy")
 
   @@index([createdBy])
   @@index([updatedBy])
@@ -111,6 +114,11 @@ model Brand {
   updatedAt DateTime  @updatedAt
   isActive  Boolean   @default(true)
   Product   Product[]
+
+  createdByUser User?   @relation("BrandCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User?   @relation("BrandUpdatedBy", fields: [updatedBy], references: [id])
+  User          User?   @relation(fields: [userId], references: [id])
+  userId        String?
 
   @@unique([name, branchId])
   @@unique([abb, branchId])
