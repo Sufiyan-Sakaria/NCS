@@ -83,7 +83,7 @@ export const getUsersByCompany = async (
     const { companyId } = req.params;
 
     const users = await prisma.user.findMany({
-      where: { companyId },
+      where: { companyId, isActive: true },
       include: {
         company: true,
         access: {

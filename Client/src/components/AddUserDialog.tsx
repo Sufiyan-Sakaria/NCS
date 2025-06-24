@@ -6,7 +6,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -24,36 +23,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useCreateUser } from "@/hooks/UseUser";
+import { useCreateUser, useUpdateUser } from "@/hooks/UseUser";
 import { useBranches } from "@/hooks/UseBranch";
-import { RootState } from "@/redux/store";
 import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 import { Role, ROLE_OPTIONS } from "@/types/Role";
+import { User } from "@/types/User";
+import axios from "axios";
 
 interface AddUserDialogProps {
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
   onSuccess?: () => void;
+  mode?: "add" | "edit";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  initialData?: User | null;
 }
 
-export function AddUserDialog({ trigger, onSuccess }: AddUserDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<{
-    name: string;
-    email: string;
-    role: Role;
-    branchIds: string[];
-  }>({
+export function AddUserDialog({
+  trigger,
+  onSuccess,
+  mode = "add",
+  open,
+  onOpenChange,
+  initialData,
+}: AddUserDialogProps) {
+  const isEditMode = mode === "edit";
+  const { user: currentUser } = useSelector((state: RootState) => state.auth);
+
+  const [user, setUser] = useState({
     name: "",
     email: "",
-    role: "viewer",
-    branchIds: [],
+    password: "",
+    role: "viewer" as Role,
+    branchIds: [] as string[],
   });
 
-  const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { data: branches = [] } = useBranches();
-  const { mutate, isPending } = useCreateUser();
+  const { mutate: createUser, isPending: isCreating } = useCreateUser();
+  const { mutate: updateUser, isPending: isUpdating } = useUpdateUser();
+
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      setUser({
+        name: initialData.name,
+        email: initialData.email,
+        password: "",
+        role: initialData.role,
+        branchIds: initialData.branches?.map(branch => branch.id) || [],
+      });
+    }
+  }, [isEditMode, initialData]);
 
   const toggleBranch = (branchId: string) => {
     setUser((u) => ({
@@ -64,85 +87,134 @@ export function AddUserDialog({ trigger, onSuccess }: AddUserDialogProps) {
     }));
   };
 
-  const handleAdd = () => {
-    if (!user.name.trim() || !user.email.trim() || !user.role.trim()) {
-      toast.error("Please fill in name, email, and role.");
+  const handleSubmit = () => {
+    const { name, email, password, role, branchIds } = user;
+    if (!name.trim() || !email.trim() || (!isEditMode && !password.trim())) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
-    if (user.role !== "owner" && user.branchIds.length === 0) {
-      toast.error("Please select at least one branch.");
-      return;
-    }
+    const basePayload = {
+      name: name.trim(),
+      email: email.trim(),
+      role,
+    };
 
-    mutate(
-      {
-        name: user.name.trim(),
-        email: user.email.trim(),
-        role: user.role,
-        branchIds: user.role === "owner" ? [] : user.branchIds,
-        createdBy: currentUser?.id || "",
-      },
-      {
-        onSuccess: () => {
-          toast.success("User added successfully");
-          setUser({ name: "", email: "", role: "viewer", branchIds: [] });
-          setOpen(false);
-          onSuccess?.();
+    if (isEditMode && initialData) {
+      updateUser(
+        {
+          id: initialData.id,
+          ...basePayload,
+          updatedBy: currentUser?.id || "",
+          ...(password.trim() && { password: password.trim() }),
+          ...(role !== "owner" && { branchIds }),
         },
-        onError: (err) => {
-          toast.error("Failed to add user" + err,);
+        {
+          onSuccess: () => {
+            toast.success("User updated successfully");
+            onOpenChange?.(false);
+            onSuccess?.();
+          },
+          onError: (err: unknown) => {
+            if (axios.isAxiosError(err)) {
+              const status = err.response?.status;
+
+              if (status === 209) {
+                toast.error("Email already exists");
+              } else {
+                toast.error("Failed to update user.");
+              }
+            } else {
+              toast.error("An unknown error occurred.");
+            }
+          }
+        }
+      );
+    } else {
+      createUser(
+        {
+          ...basePayload,
+          password: password.trim(),
+          companyId: currentUser?.companyId || "",
+          createdBy: currentUser?.id || "",
+          ...(role !== "owner" && { branchIds }),
         },
-      }
-    );
+        {
+          onSuccess: () => {
+            toast.success("User added successfully");
+            setUser({
+              name: "",
+              email: "",
+              password: "",
+              role: "viewer",
+              branchIds: [],
+            });
+            onOpenChange?.(false);
+            onSuccess?.();
+          },
+          onError: () => toast.error("Failed to add user."),
+        }
+      );
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
+          <DialogTitle>{isEditMode ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
+            <Label className="text-right">Name</Label>
             <Input
-              id="name"
               value={user.name}
-              onChange={(e) => setUser((u) => ({ ...u, name: e.target.value }))}
+              onChange={(e) => setUser({ ...user, name: e.target.value })}
               className="col-span-3"
               placeholder="User name"
             />
           </div>
+
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="email" className="text-right">
-              Email
-            </Label>
+            <Label className="text-right">Email</Label>
             <Input
-              id="email"
               type="email"
               value={user.email}
-              onChange={(e) => setUser((u) => ({ ...u, email: e.target.value }))}
+              onChange={(e) => setUser({ ...user, email: e.target.value })}
               className="col-span-3"
               placeholder="user@example.com"
             />
           </div>
+
+          {!isEditMode && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Password</Label>
+              <Input
+                type="password"
+                value={user.password}
+                onChange={(e) =>
+                  setUser({ ...user, password: e.target.value })
+                }
+                className="col-span-3"
+                placeholder="Enter password"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="role" className="text-right">
-              Role
-            </Label>
+            <Label className="text-right">Role</Label>
             <Select
               value={user.role}
-              onValueChange={(role: Role) => setUser((u) => ({ ...u, role }))}
+              onValueChange={(value: Role) =>
+                setUser((u) => ({ ...u, role: value }))
+              }
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {ROLE_OPTIONS.map((role: Role) => (
+                {ROLE_OPTIONS.map((role) => (
                   <SelectItem key={role} value={role}>
                     {role.charAt(0).toUpperCase() + role.slice(1)}
                   </SelectItem>
@@ -151,7 +223,7 @@ export function AddUserDialog({ trigger, onSuccess }: AddUserDialogProps) {
             </Select>
           </div>
 
-          {user.role !== "owner" && (
+          {!isEditMode && user.role !== "owner" && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Branches</Label>
               <div className="col-span-3">
@@ -178,9 +250,8 @@ export function AddUserDialog({ trigger, onSuccess }: AddUserDialogProps) {
                         <Checkbox
                           checked={user.branchIds.includes(branch.id)}
                           onCheckedChange={() => toggleBranch(branch.id)}
-                          id={branch.id}
                         />
-                        <Label htmlFor={branch.id}>{branch.name}</Label>
+                        <Label>{branch.name}</Label>
                       </div>
                     ))}
                   </PopoverContent>
@@ -190,8 +261,14 @@ export function AddUserDialog({ trigger, onSuccess }: AddUserDialogProps) {
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleAdd} disabled={isPending}>
-            {isPending ? "Adding..." : "Add User"}
+          <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+            {isEditMode
+              ? isUpdating
+                ? "Saving..."
+                : "Save Changes"
+              : isCreating
+                ? "Adding..."
+                : "Add User"}
           </Button>
         </DialogFooter>
       </DialogContent>

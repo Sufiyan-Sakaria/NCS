@@ -6,8 +6,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +15,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { User } from "@/types/User";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 export default function UserChartPage() {
-  const { data, isLoading, error } = useUserQuery();
+  const companyId = useSelector((state: RootState) => state.auth.user?.companyId)
+  const { data, isLoading, error } = useUserQuery(companyId ?? "");
 
   if (isLoading)
     return <p className="text-sm text-muted-foreground">Loading...</p>;
@@ -30,7 +32,7 @@ export default function UserChartPage() {
 
   // ✅ Count users per role
   const roleCounts: Record<string, number> = {};
-  data.forEach((user: any) => {
+  data.forEach((user: User) => {
     roleCounts[user.role] = (roleCounts[user.role] || 0) + 1;
   });
 

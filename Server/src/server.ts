@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import Routes from "./routes/index";
-import { globalErrorHandler } from "./middlewares/errorHandler";
+import { errorHandler } from "./middlewares/errorHandler";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
 app.use("/api/", Routes);
 
 // Global error handler
-app.use(globalErrorHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
