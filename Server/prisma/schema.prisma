@@ -10,16 +10,13 @@ datasource db {
 
 model Company {
   id            String          @id @default(uuid())
-  name          String
-  email         String
+  name          String          @unique
+  email         String          @unique
   Branch        Branch[]
   FinancialYear FinancialYear[]
   User          User[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-
-  @@unique([name])
-  @@unique([email])
 }
 
 model Branch {
@@ -57,22 +54,36 @@ model FinancialYear {
 }
 
 model User {
-  id            String             @id @default(uuid())
-  name          String
-  email         String             @unique
-  password      String
-  role          Role
-  company       Company            @relation(fields: [companyId], references: [id])
-  companyId     String
-  access        UserBranchAccess[]
-  createdBy     String?
-  updatedBy     String?
-  isActive      Boolean            @default(true)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  Brand         Brand[]
-  createdBrands Brand[]            @relation("BrandCreatedBy")
-  updatedBrands Brand[]            @relation("BrandUpdatedBy")
+  id        String             @id @default(uuid())
+  name      String
+  email     String             @unique
+  password  String
+  role      Role
+  company   Company            @relation(fields: [companyId], references: [id])
+  companyId String
+  access    UserBranchAccess[]
+  isActive  Boolean            @default(true)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  createdBrands   Brand[]        @relation("BrandCreatedBy")
+  updatedBrands   Brand[]        @relation("BrandUpdatedBy")
+  createdCategory Category[]     @relation("CategoryCreatedBy")
+  updatedCategory Category[]     @relation("CategoryUpdatedBy")
+  createdUnits    Unit[]         @relation("UnitCreatedBy")
+  updatedUnits    Unit[]         @relation("UnitUpdatedBy")
+  createdProducts Product[]      @relation("ProductCreatedBy")
+  updatedProducts Product[]      @relation("ProductUpdatedBy")
+  createdGodowns  Godown[]       @relation("GodownCreatedBy")
+  updatedGodowns  Godown[]       @relation("GodownUpdatedBy")
+  createdStocks   ProductStock[] @relation("ProductStockCreatedBy")
+  updatedStocks   ProductStock[] @relation("ProductStockUpdatedBy")
+  createdJournals Journal[]      @relation("JournalCreatedBy")
+  updatedJournals Journal[]      @relation("JournalUpdatedBy")
+  createdEntries  JournalEntry[] @relation("JournalEntryCreatedBy")
+  updatedEntries  JournalEntry[] @relation("JournalEntryUpdatedBy")
 
   @@index([createdBy])
   @@index([updatedBy])
@@ -115,10 +126,8 @@ model Brand {
   isActive  Boolean   @default(true)
   Product   Product[]
 
-  createdByUser User?   @relation("BrandCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User?   @relation("BrandUpdatedBy", fields: [updatedBy], references: [id])
-  User          User?   @relation(fields: [userId], references: [id])
-  userId        String?
+  createdByUser User? @relation("BrandCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("BrandUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([name, branchId])
   @@unique([abb, branchId])
@@ -140,6 +149,9 @@ model Category {
   isActive  Boolean   @default(true)
   Product   Product[]
 
+  createdByUser User? @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+
   @@unique([name, branchId])
   @@unique([abb, branchId])
   @@index([branchId])
@@ -160,6 +172,9 @@ model Unit {
   updatedAt    DateTime       @updatedAt
   Product      Product[]
   ProductStock ProductStock[]
+
+  createdByUser User? @relation("UnitCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("UnitUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([name, branchId])
   @@unique([abb, branchId])
@@ -191,6 +206,9 @@ model Product {
   ProductStock       ProductStock[]
   ProductLedgerEntry ProductLedgerEntry[]
 
+  createdByUser User? @relation("ProductCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id])
+
   @@unique([name, branchId])
 }
 
@@ -207,6 +225,9 @@ model Godown {
   updatedAt          DateTime             @updatedAt
   ProductStock       ProductStock[]
   ProductLedgerEntry ProductLedgerEntry[]
+
+  createdByUser User? @relation("GodownCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("GodownUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([branchId])
   @@index([createdBy])
@@ -228,6 +249,9 @@ model ProductStock {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  createdByUser User? @relation("ProductStockCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("ProductStockUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([productId])
   @@index([godownId])
@@ -328,7 +352,6 @@ model Ledger {
 }
 
 enum LedgerType {
-  // Assets
   Cash
   Bank
   AccountsReceivable
@@ -336,29 +359,21 @@ enum LedgerType {
   FixedAssets
   PrepaidExpenses
   AdvanceToSuppliers
-
-  // Liabilities
   AccountsPayable
   AccruedExpenses
   LoansPayable
   GSTPayable
   TDSPayable
   AdvanceFromCustomers
-
-  // Capital
   OwnerCapital
   RetainedEarnings
   Drawings
   Reserves
-
-  // Income
   Sales
   InterestIncome
   CommissionReceived
   RentalIncome
   OtherIncome
-
-  // Expenses
   Purchase
   Wages
   Rent
@@ -385,6 +400,9 @@ model Journal {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  createdByUser User? @relation("JournalCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("JournalUpdatedBy", fields: [updatedBy], references: [id])
+
   @@index([financialYearId])
   @@index([branchId])
 }
@@ -402,6 +420,9 @@ model JournalEntry {
   updatedBy String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  createdByUser User? @relation("JournalEntryCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("JournalEntryUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([journalId])
   @@index([ledgerId])

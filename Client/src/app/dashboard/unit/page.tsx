@@ -4,8 +4,6 @@ import { NextPage } from "next";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useActiveBranchId } from "@/hooks/UseActiveBranch";
-import { useCategories, useDeleteCategory } from "@/hooks/UseCategory";
-import { AddCategoryDialog } from "@/components/AddCategoryDailog";
 import {
   Table,
   TableBody,
@@ -33,31 +31,33 @@ import {
 import { MoreVertical, Pencil, Trash, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDeleteUnits, useUnits } from "@/hooks/UseUnit";
+import { UnitDialog } from "@/components/UnitDailog";
 
 const Page: NextPage = () => {
   const branchId = useActiveBranchId();
-  const { data: categories, isLoading, error, refetch } = useCategories(branchId!);
-  const { mutate: deleteCategory, isPending: isDeleting } = useDeleteCategory(branchId!);
+  const { data: units, isLoading, error, refetch } = useUnits(branchId!);
+  const { mutate: deleteUnit, isPending: isDeleting } = useDeleteUnits(branchId!);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteName, setDeleteName] = useState<string>("");
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editCategoryData, setEditCategoryData] = useState<{
+  const [editUnitData, setEditUnitData] = useState<{
     id: string;
     name: string;
     abb: string;
   } | null>(null);
 
   const handleDelete = (id: string) => {
-    deleteCategory(
+    deleteUnit(
       { id },
       {
         onSuccess: () => {
-          toast.success("Category deleted successfully");
+          toast.success("Unit deleted successfully");
           setDeleteId(null);
         },
-        onError: () => toast.error("Failed to delete category"),
+        onError: () => toast.error("Failed to delete unit"),
       }
     );
   };
@@ -73,14 +73,14 @@ const Page: NextPage = () => {
   }
 
   if (error) {
-    return <main className="p-6 text-destructive">Failed to load categories.</main>;
+    return <main className="p-6 text-destructive">Failed to load units.</main>;
   }
 
-  if (!categories || categories.length === 0) {
+  if (!units || units.length === 0) {
     return (
       <main className="p-6 text-center space-y-4">
-        <p className="text-muted-foreground">No categories found.</p>
-        <AddCategoryDialog
+        <p className="text-muted-foreground">No units found.</p>
+        <UnitDialog
           branchId={branchId!}
           trigger={<p className="hover:underline cursor-pointer text-blue-600">Add One</p>}
           onSuccess={() => refetch()}
@@ -92,13 +92,13 @@ const Page: NextPage = () => {
   return (
     <main className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Categories</h1>
-        <AddCategoryDialog
+        <h1 className="text-2xl font-semibold">Units</h1>
+        <UnitDialog
           branchId={branchId!}
           trigger={
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Add Category
+              Add Unit
             </Button>
           }
           onSuccess={() => refetch()}
@@ -119,15 +119,15 @@ const Page: NextPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {categories.map((category, index) => (
-              <TableRow key={category.id}>
+            {units.map((unit, index) => (
+              <TableRow key={unit.id}>
                 <TableCell className="text-center border-r">{index + 1}</TableCell>
-                <TableCell className="border-r font-medium">{category.name}</TableCell>
-                <TableCell className="border-r">{category.abb}</TableCell>
-                <TableCell className="border-r">{category.isActive ? "Active" : "Inactive"}</TableCell>
-                <TableCell className="border-r">{category.createdByUser?.name}</TableCell>
+                <TableCell className="border-r font-medium">{unit.name}</TableCell>
+                <TableCell className="border-r">{unit.abb}</TableCell>
+                <TableCell className="border-r">{unit.isActive ? "Active" : "Inactive"}</TableCell>
+                <TableCell className="border-r">{unit.createdByUser?.name}</TableCell>
                 <TableCell className="border-r">
-                  {new Date(category.createdAt).toLocaleString(undefined, {
+                  {new Date(unit.createdAt).toLocaleString(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",
                   })}
@@ -141,10 +141,10 @@ const Page: NextPage = () => {
                       <DropdownMenuItem
                         className="cursor-pointer"
                         onClick={() => {
-                          setEditCategoryData({
-                            id: category.id,
-                            name: category.name,
-                            abb: category.abb,
+                          setEditUnitData({
+                            id: unit.id,
+                            name: unit.name,
+                            abb: unit.abb,
                           });
                           setEditDialogOpen(true);
                         }}
@@ -155,8 +155,8 @@ const Page: NextPage = () => {
                       <DropdownMenuItem
                         className="cursor-pointer text-red-600 focus:bg-red-600"
                         onClick={() => {
-                          setDeleteId(category.id);
-                          setDeleteName(category.name);
+                          setDeleteId(unit.id);
+                          setDeleteName(unit.name);
                         }}
                       >
                         <Trash className="w-4 h-4 mr-2" />
@@ -172,12 +172,12 @@ const Page: NextPage = () => {
       </div>
 
       {/* Edit Dialog */}
-      <AddCategoryDialog
+      <UnitDialog
         mode="edit"
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         branchId={branchId!}
-        initialData={editCategoryData}
+        initialData={editUnitData}
         onSuccess={() => {
           setEditDialogOpen(false);
           refetch();

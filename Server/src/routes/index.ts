@@ -6,6 +6,10 @@ import User from "./User";
 import Branch from "./Branch";
 import Auth from "./Auth";
 import Brand from "./Brand";
+import Category from "./Category";
+import Unit from "./Unit";
+import Godown from "./Godown";
+import Product from "./Product";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -25,5 +29,17 @@ router.use("/auth", Auth);
 
 // Brand Routes
 router.use("/brand", Brand);
+
+// Category Routes
+router.use("/category", Category);
+
+// Unit Routes
+router.use("/unit", Unit);
+
+// Godown Routes
+router.use("/godown", Godown);
+
+// Product Routes
+router.use("/product", Product);
 
 export default router;
