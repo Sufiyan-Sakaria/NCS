@@ -36,57 +36,68 @@ export const createProduct = async (
   res: Response,
   next: NextFunction
 ) => {
+  const {
+    name,
+    unitId,
+    brandId,
+    categoryId,
+    saleRate,
+    initialStocks,
+    createdBy,
+  } = req.body;
+  const { branchId } = req.params;
+
+  if (
+    !name ||
+    !unitId ||
+    !brandId ||
+    !categoryId ||
+    !branchId ||
+    saleRate == null
+  ) {
+    return next(new AppError("Missing required fields", 400));
+  }
+
   try {
-    const {
-      name,
-      unitId,
-      brandId,
-      categoryId,
-      saleRate,
-      initialStocks,
-      createdBy,
-    } = req.body;
-    const { branchId } = req.params;
+    const result = await prisma.$transaction(async (tx) => {
+      // Create product
+      const product = await tx.product.create({
+        data: {
+          name,
+          unitId,
+          brandId,
+          categoryId,
+          saleRate,
+          qty: 0,
+          thaan: 0,
+          branchId,
+          createdBy,
+        },
+      });
 
-    if (
-      !name ||
-      !unitId ||
-      !brandId ||
-      !categoryId ||
-      !branchId ||
-      saleRate == null
-    ) {
-      return next(new AppError("Missing required fields", 400));
-    }
+      let totalQty = 0;
+      let totalThaan = 0;
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        unitId,
-        brandId,
-        categoryId,
-        saleRate,
-        qty: 0,
-        thaan: 0,
-        branchId,
-        createdBy,
-      },
-    });
-
-    let totalQty = 0;
-    let totalThaan = 0;
-
-    if (Array.isArray(initialStocks) && initialStocks.length > 0) {
-      const ledger = await prisma.productLedger.findFirst({
+      // Get latest ledger
+      const ledger = await tx.productLedger.findFirst({
         where: { branchId },
         orderBy: { createdAt: "desc" },
       });
 
+      if (!ledger) {
+        throw new AppError("No product ledger found for branch", 400);
+      }
+
+      if (!Array.isArray(initialStocks) || initialStocks.length === 0) {
+        throw new AppError("Initial stock required", 400);
+      }
+
+      // Process stock entries
       for (const stock of initialStocks) {
         const { godownId, qty, thaan } = stock;
         if (!godownId || (qty === 0 && thaan === 0)) continue;
 
-        await prisma.productStock.create({
+        await tx.productStock.create({
           data: {
             productId: product.id,
             unitId,
@@ -97,36 +108,47 @@ export const createProduct = async (
           },
         });
 
-        if (ledger) {
-          await prisma.productLedgerEntry.create({
-            data: {
-              productId: product.id,
-              productLedgerId: ledger.id,
-              godownId,
-              type: "IN",
-              date: new Date(),
-              qty,
-              thaan,
-              narration: "Opening Stock",
-              createdBy,
-            },
-          });
-        }
+        await tx.productLedgerEntry.create({
+          data: {
+            productId: product.id,
+            productLedgerId: ledger.id,
+            godownId,
+            type: "IN",
+            date: new Date(),
+            qty,
+            thaan,
+            narration: "Opening Stock",
+            createdBy,
+          },
+        });
 
         totalQty += qty;
         totalThaan += thaan;
       }
 
-      await prisma.product.update({
+      // Update final product qty and thaan
+      await tx.product.update({
         where: { id: product.id },
         data: {
           qty: totalQty,
           thaan: totalThaan,
         },
       });
-    }
 
-    res.status(201).json({ success: true, data: product });
+      // Fetch and return updated product
+      const updatedProduct = await tx.product.findUnique({
+        where: { id: product.id },
+        include: {
+          brand: true,
+          category: true,
+          unit: true,
+          createdByUser: { select: { id: true, name: true } },
+        },
+      });
+      return updatedProduct;
+    });
+
+    res.status(201).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
