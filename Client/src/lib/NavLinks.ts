@@ -1,5 +1,5 @@
 import { Navlink } from "@/types/NavLink";
-import { BadgeCheck, LayoutGrid, Package, PieChart, Scale, User, Warehouse } from "lucide-react";
+import { BadgeCheck, LayoutGrid, Package, PieChart, Scale, ScrollText, User, Warehouse } from "lucide-react";
 
 export const navLinks: Navlink[] = [
   {
@@ -36,5 +36,10 @@ export const navLinks: Navlink[] = [
     label: "Products",
     icon: Package,
     url: "/dashboard/product",
+  },
+  {
+    label: "Product Ledger",
+    icon:ScrollText,
+    url:"/dashboard/product-ledger"
   },
 ];

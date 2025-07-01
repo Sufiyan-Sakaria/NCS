@@ -68,22 +68,25 @@ model User {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  createdBrands   Brand[]        @relation("BrandCreatedBy")
-  updatedBrands   Brand[]        @relation("BrandUpdatedBy")
-  createdCategory Category[]     @relation("CategoryCreatedBy")
-  updatedCategory Category[]     @relation("CategoryUpdatedBy")
-  createdUnits    Unit[]         @relation("UnitCreatedBy")
-  updatedUnits    Unit[]         @relation("UnitUpdatedBy")
-  createdProducts Product[]      @relation("ProductCreatedBy")
-  updatedProducts Product[]      @relation("ProductUpdatedBy")
-  createdGodowns  Godown[]       @relation("GodownCreatedBy")
-  updatedGodowns  Godown[]       @relation("GodownUpdatedBy")
-  createdStocks   ProductStock[] @relation("ProductStockCreatedBy")
-  updatedStocks   ProductStock[] @relation("ProductStockUpdatedBy")
-  createdJournals Journal[]      @relation("JournalCreatedBy")
-  updatedJournals Journal[]      @relation("JournalUpdatedBy")
-  createdEntries  JournalEntry[] @relation("JournalEntryCreatedBy")
-  updatedEntries  JournalEntry[] @relation("JournalEntryUpdatedBy")
+  createdBrands               Brand[]              @relation("BrandCreatedBy")
+  updatedBrands               Brand[]              @relation("BrandUpdatedBy")
+  createdCategory             Category[]           @relation("CategoryCreatedBy")
+  updatedCategory             Category[]           @relation("CategoryUpdatedBy")
+  createdUnits                Unit[]               @relation("UnitCreatedBy")
+  updatedUnits                Unit[]               @relation("UnitUpdatedBy")
+  createdProducts             Product[]            @relation("ProductCreatedBy")
+  updatedProducts             Product[]            @relation("ProductUpdatedBy")
+  createdGodowns              Godown[]             @relation("GodownCreatedBy")
+  updatedGodowns              Godown[]             @relation("GodownUpdatedBy")
+  createdStocks               ProductStock[]       @relation("ProductStockCreatedBy")
+  updatedStocks               ProductStock[]       @relation("ProductStockUpdatedBy")
+  createdJournals             Journal[]            @relation("JournalCreatedBy")
+  updatedJournals             Journal[]            @relation("JournalUpdatedBy")
+  createdEntries              JournalEntry[]       @relation("JournalEntryCreatedBy")
+  updatedEntries              JournalEntry[]       @relation("JournalEntryUpdatedBy")
+  ProductLedgerEntry          ProductLedgerEntry[]
+  createdProductLedgerEntries ProductLedgerEntry[] @relation("ProductLedgerEntryCreatedBy")
+  updatedProductLedgerEntries ProductLedgerEntry[] @relation("ProductLedgerEntryUpdatedBy")
 
   @@index([createdBy])
   @@index([updatedBy])
@@ -320,6 +323,11 @@ model ProductLedgerEntry {
   isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  createdByUser User?   @relation("ProductLedgerEntryCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User?   @relation("ProductLedgerEntryUpdatedBy", fields: [updatedBy], references: [id])
+  User          User?   @relation(fields: [userId], references: [id])
+  userId        String?
 
   @@index([productId])
   @@index([productLedgerId])

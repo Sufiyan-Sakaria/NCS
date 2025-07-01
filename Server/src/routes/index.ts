@@ -10,6 +10,7 @@ import Category from "./Category";
 import Unit from "./Unit";
 import Godown from "./Godown";
 import Product from "./Product";
+import ProductLedger from "./ProductLedger";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -41,5 +42,8 @@ router.use("/godown", Godown);
 
 // Product Routes
 router.use("/product", Product);
+
+// Product Ledger Routes
+router.use("/product-ledger", ProductLedger);
 
 export default router;
