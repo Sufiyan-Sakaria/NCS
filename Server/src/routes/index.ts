@@ -11,6 +11,7 @@ import Unit from "./Unit";
 import Godown from "./Godown";
 import Product from "./Product";
 import ProductLedger from "./ProductLedger";
+import Account from "./Account";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -45,5 +46,8 @@ router.use("/product", Product);
 
 // Product Ledger Routes
 router.use("/product-ledger", ProductLedger);
+
+// Account & Ledger Routes
+router.use("/account", Account);
 
 export default router;

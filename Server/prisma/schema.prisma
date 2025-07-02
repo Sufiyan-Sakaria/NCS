@@ -35,6 +35,8 @@ model Branch {
   Unit             Unit[]
   ProductLedger    ProductLedger[]
   Journal          Journal[]
+  AccountGroup     AccountGroup[]
+  Ledger           Ledger[]
 
   @@index([companyId])
 }
@@ -90,6 +92,7 @@ model User {
 
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 enum Role {
@@ -114,6 +117,7 @@ model UserBranchAccess {
   @@unique([userId, branchId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model Brand {
@@ -137,6 +141,7 @@ model Brand {
   @@index([branchId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model Category {
@@ -160,6 +165,7 @@ model Category {
   @@index([branchId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model Unit {
@@ -184,6 +190,7 @@ model Unit {
   @@index([branchId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model Product {
@@ -213,6 +220,7 @@ model Product {
   updatedByUser User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([name, branchId])
+  @@index([isActive])
 }
 
 model Godown {
@@ -235,6 +243,7 @@ model Godown {
   @@index([branchId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model ProductStock {
@@ -261,15 +270,20 @@ model ProductStock {
   @@index([unitId])
   @@index([createdBy])
   @@index([updatedBy])
+  @@index([isActive])
 }
 
 model AccountGroup {
   id        String             @id @default(uuid())
   name      String
+  code      String
+  balance   Decimal
   nature    AccountGroupNature
   parent    AccountGroup?      @relation("GroupHierarchy", fields: [parentId], references: [id])
   parentId  String?
   children  AccountGroup[]     @relation("GroupHierarchy")
+  branch    Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId  String
   Ledger    Ledger[]
   createdBy String?
   updatedBy String?
@@ -277,8 +291,10 @@ model AccountGroup {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  @@unique([name, parentId])
+  @@unique([name, parentId, branchId])
   @@index([parentId])
+  @@index([branchId])
+  @@index([isActive])
 }
 
 enum AccountGroupNature {
@@ -341,7 +357,7 @@ enum LedgerEntryType {
 
 model Ledger {
   id             String         @id @default(uuid())
-  name           String         @unique
+  name           String
   code           String         @unique
   type           LedgerType
   phone1         String
@@ -350,13 +366,19 @@ model Ledger {
   openingBalance Decimal
   accountGroup   AccountGroup   @relation(fields: [accountGroupId], references: [id])
   accountGroupId String
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId       String
+  isActive       Boolean        @default(true)
   createdBy      String?
   updatedBy      String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   JournalEntry   JournalEntry[]
 
+  @@unique([name, branchId])
   @@index([accountGroupId])
+  @@index([branchId])
+  @@index([isActive])
 }
 
 enum LedgerType {
@@ -403,6 +425,7 @@ model Journal {
   branchId        String
   entries         JournalEntry[]
   narration       String?
+  isActive        Boolean        @default(true)
   createdBy       String?
   updatedBy       String?
   createdAt       DateTime       @default(now())
@@ -413,6 +436,7 @@ model Journal {
 
   @@index([financialYearId])
   @@index([branchId])
+  @@index([isActive])
 }
 
 model JournalEntry {
@@ -424,6 +448,7 @@ model JournalEntry {
   type      EntryType
   amount    Float
   narration String?
+  isActive  Boolean   @default(true)
   createdBy String?
   updatedBy String?
   createdAt DateTime  @default(now())
@@ -434,6 +459,7 @@ model JournalEntry {
 
   @@index([journalId])
   @@index([ledgerId])
+  @@index([isActive])
 }
 
 enum EntryType {
