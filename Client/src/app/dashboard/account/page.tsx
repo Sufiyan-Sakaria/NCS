@@ -56,7 +56,7 @@ const Page: NextPage = () => {
           refetch();
         },
         onError: () => toast.error("Failed to delete account"),
-      }
+      },
     );
   };
 
@@ -124,11 +124,17 @@ const Page: NextPage = () => {
               <TableRow key={account.id}>
                 <TableCell className="border-r font-mono">{account.code}</TableCell>
                 <TableCell className="border-r font-medium">{account.name}</TableCell>
-                <TableCell className="border-r capitalize">{account.type.toLowerCase().replace(/([a-z])([A-Z])/g, '$1 $2')}</TableCell>
+                <TableCell className="border-r capitalize">
+                  {account.type.toLowerCase().replace(/([a-z])([A-Z])/g, "$1 $2")}
+                </TableCell>
                 <TableCell className="border-r">{account.accountGroup?.name}</TableCell>
                 <TableCell className="border-r">{account.balance}</TableCell>
                 <TableCell className="border-r">
-                  <span className={`px-2 py-1 rounded-full text-xs ${account.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      account.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
                     {account.isActive ? "Active" : "Inactive"}
                   </span>
                 </TableCell>
@@ -186,7 +192,8 @@ const Page: NextPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the account <strong>{deleteName}</strong> and all its associated transactions.
+              This will permanently delete the account <strong>{deleteName}</strong> and all its
+              associated transactions.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

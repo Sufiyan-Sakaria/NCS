@@ -13,6 +13,7 @@ import {
   createDefaultAccounts,
   getTrialBalance,
   getLedgerBookByLedgerId,
+  getHierarchicalAccountsByBranch,
 } from "../controllers/Account";
 
 const router = Router();
@@ -37,5 +38,7 @@ router.post("/structure/default", createDefaultAccounts);
 // Trial Balance & Ledger Book
 router.get("/trial-balance/:branchId/:financialYearId", getTrialBalance);
 router.get("/ledger-book/:ledgerId", getLedgerBookByLedgerId);
+
+router.get("/hierarchy/:branchId", getHierarchicalAccountsByBranch);
 
 export default router;

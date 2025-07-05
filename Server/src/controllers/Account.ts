@@ -992,3 +992,61 @@ export const getLedgerBookByLedgerId = async (
     next(error);
   }
 };
+
+// GET hierarchical account structure (groups + ledgers) by branch
+export const getHierarchicalAccountsByBranch = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { branchId } = req.params;
+
+    // Step 1: Get all active account groups and ledgers
+    const allGroups = await prisma.accountGroup.findMany({
+      where: { branchId, isActive: true },
+      include: {
+        Ledger: {
+          where: { isActive: true },
+          orderBy: { code: "asc" },
+        },
+      },
+      orderBy: { code: "asc" },
+    });
+
+    // Step 2: Build a map of groups by id
+    const groupMap = new Map<string, any>();
+    allGroups.forEach((group) => {
+      groupMap.set(group.id, {
+        id: group.id,
+        name: group.name,
+        code: group.code,
+        nature: group.nature,
+        parentId: group.parentId,
+        balance: group.balance,
+        ledgers: group.Ledger,
+        children: [],
+      });
+    });
+
+    // Step 3: Build hierarchy
+    const roots: any[] = [];
+    for (const group of groupMap.values()) {
+      if (group.parentId) {
+        const parent = groupMap.get(group.parentId);
+        if (parent) {
+          parent.children.push(group);
+        }
+      } else {
+        roots.push(group);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: roots.sort((a, b) => a.code.localeCompare(b.code)),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
