@@ -1,22 +1,90 @@
 import api from "@/lib/axios";
-import { Account } from "@/types/Account";
 import { AxiosResponse } from "axios";
 
-// ============ Payload Types ============
+// ============ Types ============
 
-export interface CreateAccountPayload {
+export interface AccountGroup {
+  id: string;
+  name: string;
+  code: string;
+  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
+  parentId?: string;
+  balance: number;
+  children: AccountGroup[];
+  ledgers: Ledger[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Ledger {
+  id: string;
   name: string;
   code: string;
   type: string;
   phone1?: string;
   phone2?: string;
+  balance: number;
   openingBalance: number;
   accountGroupId: string;
   branchId: string;
-  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface UpdateAccountPayload {
+export interface FlatAccountGroup {
+  id: string;
+  name: string;
+  code: string;
+  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
+  parentId?: string;
+  balance: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  parent?: FlatAccountGroup;
+  children: FlatAccountGroup[];
+  Ledger: Ledger[];
+}
+
+// ============ Payload Types ============
+
+export interface CreateAccountGroupPayload {
+  name: string;
+  code: string;
+  balance?: number;
+  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
+  parentId?: string;
+  branchId: string;
+}
+
+export interface UpdateAccountGroupPayload {
+  id: string;
+  name: string;
+  code: string;
+  balance?: number;
+  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
+  parentId?: string;
+}
+
+export interface DeleteAccountGroupPayload {
+  id: string;
+}
+
+export interface CreateLedgerPayload {
+  name: string;
+  code: string;
+  type: string;
+  phone1?: string;
+  phone2?: string;
+  openingBalance?: number;
+  accountGroupId: string;
+  branchId: string;
+  financialYearId?: string;
+}
+
+export interface UpdateLedgerPayload {
   id: string;
   name: string;
   code: string;
@@ -24,79 +92,107 @@ export interface UpdateAccountPayload {
   phone1?: string;
   phone2?: string;
   accountGroupId: string;
-  updatedBy?: string;
 }
 
-export interface DeleteAccountPayload {
+export interface DeleteLedgerPayload {
   id: string;
 }
 
-export interface TrialBalanceEntry {
-  id: string;
-  name: string;
-  code: string;
-  accountGroup: string;
-  openingBalance: number;
-  totalDebits: number;
-  totalCredits: number;
-  currentBalance: number;
+export interface CreateDefaultAccountsPayload {
+  branchId: string;
 }
 
 // ============ API Methods ============
 
-// GET /api/account/ledgers/branch/:branchId
-export const getAccountsByBranch = async (branchId: string): Promise<Account[]> => {
-  const response: AxiosResponse<{ data: Account[] }> = await api.get(
+// GET /account/hierarchy/:branchId
+export const getHierarchicalAccountsByBranch = async (
+  branchId: string,
+): Promise<AccountGroup[]> => {
+  const response: AxiosResponse<{ data: AccountGroup[] }> = await api.get(
+    `/account/hierarchy/${branchId}`,
+  );
+  return response.data.data;
+};
+
+// GET /account/groups/branch/:branchId
+export const getAccountGroupsByBranch = async (branchId: string): Promise<FlatAccountGroup[]> => {
+  const response: AxiosResponse<{ data: FlatAccountGroup[] }> = await api.get(
+    `/account/groups/branch/${branchId}`,
+  );
+  return response.data.data;
+};
+
+// GET /account/groups/:id
+export const getAccountGroupById = async (id: string): Promise<FlatAccountGroup> => {
+  const response: AxiosResponse<{ data: FlatAccountGroup }> = await api.get(
+    `/account/groups/${id}`,
+  );
+  return response.data.data;
+};
+
+// POST /account/groups
+export const createAccountGroup = async (
+  payload: CreateAccountGroupPayload,
+): Promise<FlatAccountGroup> => {
+  const response: AxiosResponse<{ data: FlatAccountGroup }> = await api.post(
+    "/account/groups",
+    payload,
+  );
+  return response.data.data;
+};
+
+// PUT /account/groups/:id
+export const updateAccountGroup = async (
+  payload: UpdateAccountGroupPayload,
+): Promise<FlatAccountGroup> => {
+  const { id, ...data } = payload;
+  const response: AxiosResponse<{ data: FlatAccountGroup }> = await api.put(
+    `/account/groups/${id}`,
+    data,
+  );
+  return response.data.data;
+};
+
+// DELETE /account/groups/:id
+export const deleteAccountGroup = async (payload: DeleteAccountGroupPayload): Promise<void> => {
+  await api.delete(`/account/groups/${payload.id}`);
+};
+
+// GET /account/ledgers/branch/:branchId
+export const getLedgersByBranch = async (branchId: string): Promise<Ledger[]> => {
+  const response: AxiosResponse<{ data: Ledger[] }> = await api.get(
     `/account/ledgers/branch/${branchId}`,
   );
   return response.data.data;
 };
 
-// POST /api/account/ledgers
-export const createAccount = async (payload: CreateAccountPayload): Promise<Account> => {
-  const response: AxiosResponse<{ data: Account }> = await api.post(`/account/ledgers`, {
-    name: payload.name,
-    code: payload.code,
-    type: payload.type,
-    phone1: payload.phone1,
-    phone2: payload.phone2,
-    openingBalance: payload.openingBalance,
-    accountGroupId: payload.accountGroupId,
-    branchId: payload.branchId,
-    createdBy: payload.createdBy,
-  });
+// GET /account/ledgers/:id
+export const getLedgerById = async (id: string): Promise<Ledger> => {
+  const response: AxiosResponse<{ data: Ledger }> = await api.get(`/account/ledgers/${id}`);
   return response.data.data;
 };
 
-// PUT /api/account/ledgers/:id
-export const updateAccount = async (payload: UpdateAccountPayload): Promise<Account> => {
-  const response: AxiosResponse<{ data: Account }> = await api.put(
-    `/account/ledgers/${payload.id}`,
-    {
-      name: payload.name,
-      code: payload.code,
-      type: payload.type,
-      phone1: payload.phone1,
-      phone2: payload.phone2,
-      accountGroupId: payload.accountGroupId,
-      ...(payload.updatedBy && { updatedBy: payload.updatedBy }),
-    },
-  );
+// POST /account/ledgers
+export const createLedger = async (payload: CreateLedgerPayload): Promise<Ledger> => {
+  const response: AxiosResponse<{ data: Ledger }> = await api.post("/account/ledgers", payload);
   return response.data.data;
 };
 
-// DELETE /api/account/ledgers/:id
-export const deleteAccount = async (payload: DeleteAccountPayload): Promise<void> => {
+// PUT /account/ledgers/:id
+export const updateLedger = async (payload: UpdateLedgerPayload): Promise<Ledger> => {
+  const { id, ...data } = payload;
+  const response: AxiosResponse<{ data: Ledger }> = await api.put(`/account/ledgers/${id}`, data);
+  return response.data.data;
+};
+
+// DELETE /account/ledgers/:id
+export const deleteLedger = async (payload: DeleteLedgerPayload): Promise<void> => {
   await api.delete(`/account/ledgers/${payload.id}`);
 };
 
-// GET /api/account/trial-balance/:branchId/:financialYearId
-export const getTrialBalance = async (
-  branchId: string,
-  financialYearId: string,
-): Promise<TrialBalanceEntry[]> => {
-  const response: AxiosResponse<{ data: TrialBalanceEntry[] }> = await api.get(
-    `/account/trial-balance/${branchId}/${financialYearId}`,
-  );
-  return response.data.data;
+// POST /account/structure/default
+export const createDefaultAccounts = async (
+  payload: CreateDefaultAccountsPayload,
+): Promise<void> => {
+  await api.post("/account/structure/default", payload);
 };

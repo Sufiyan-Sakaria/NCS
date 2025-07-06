@@ -1,215 +1,458 @@
 "use client";
 
-import { NextPage } from "next";
-import { useState } from "react";
-import { toast } from "sonner";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import React, { useState, useMemo, JSX } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { MoreVertical, Pencil, Trash, Plus, Wallet } from "lucide-react";
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Edit,
+  Trash2,
+  Folder,
+  FileText,
+  Building,
+  Filter,
+  Search,
+  RotateCcw,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAccounts, useDeleteAccount } from "@/hooks/UseAccount";
-import { AccountDialog } from "@/components/AccountDialog";
-import { Account } from "@/types/Account";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogDescription } from "@/components/ui/alert-dialog";
+import { useHierarchicalAccounts, useCreateDefaultAccounts } from "@/hooks/UseAccount";
+import { useActiveBranchId } from "@/hooks/UseActiveBranch";
 
-const Page: NextPage = () => {
-  const branchId = useActiveBranchId();
-  const { data: accounts, isLoading, error, refetch } = useAccounts(branchId!);
-  const { mutate: deleteAccount, isPending: isDeleting } = useDeleteAccount(branchId!);
+// Type definitions
+interface Ledger {
+  id: string;
+  name: string;
+  code: string;
+  balance: number;
+  type: string;
+}
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteName, setDeleteName] = useState<string>("");
+interface AccountGroup {
+  id: string;
+  name: string;
+  code: string;
+  nature: AccountNature;
+  balance: number;
+  children: AccountGroup[];
+  ledgers: Ledger[];
+}
 
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editAccountData, setEditAccountData] = useState<Account | null>(null);
+type AccountNature = "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
 
-  const handleDelete = (id: string) => {
-    deleteAccount(
-      { id },
-      {
-        onSuccess: () => {
-          toast.success("Account deleted successfully");
-          setDeleteId(null);
-          refetch();
-        },
-        onError: () => toast.error("Failed to delete account"),
-      },
+interface AccountTreePageProps {
+  // branchId is now optional since we'll get it from the hook
+  branchId?: string;
+}
+
+const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchId }) => {
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["1", "2", "3"]));
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filterNature, setFilterNature] = useState<AccountNature | "All">("All");
+
+  // Get branchId from Redux store
+  const activeBranchId = useActiveBranchId();
+  const branchId = propBranchId || activeBranchId;
+
+  // React Query hooks
+  const { data: accountData, isLoading, error, refetch } = useHierarchicalAccounts(branchId);
+
+  // Fix: Only create mutation if branchId is available
+  const createDefaultAccountsMutation = useCreateDefaultAccounts(branchId || "");
+
+  // Check if accounts exist
+  const hasAccounts = accountData && accountData.length > 0;
+
+  // Debug logging
+  console.log("Debug Info:", {
+    propBranchId,
+    activeBranchId,
+    finalBranchId: branchId,
+    isLoading,
+    error,
+    accountData,
+    accountDataLength: accountData?.length,
+    accountDataType: typeof accountData,
+    hasAccounts,
+  });
+
+  // Toggle node expansion
+  const toggleNode = (nodeId: string): void => {
+    const newExpanded = new Set(expandedNodes);
+    if (newExpanded.has(nodeId)) {
+      newExpanded.delete(nodeId);
+    } else {
+      newExpanded.add(nodeId);
+    }
+    setExpandedNodes(newExpanded);
+  };
+
+  // Filter accounts based on search and nature filter
+  const filteredAccounts = useMemo((): AccountGroup[] => {
+    if (!accountData) return [];
+
+    return accountData.filter((account) => {
+      const matchesSearch =
+        searchTerm === "" ||
+        account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        account.code.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesNature = filterNature === "All" || account.nature === filterNature;
+
+      return matchesSearch && matchesNature;
+    });
+  }, [accountData, searchTerm, filterNature]);
+
+  // Format currency
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat("en-PK", {
+      style: "currency",
+      currency: "PKR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Get nature color variant
+  const getNatureVariant = (
+    nature: AccountNature,
+  ): "default" | "destructive" | "secondary" | "outline" => {
+    const variants: Record<AccountNature, "default" | "destructive" | "secondary" | "outline"> = {
+      Assets: "default",
+      Liabilities: "destructive",
+      Capital: "secondary",
+      Income: "outline",
+      Expenses: "outline",
+    };
+    return variants[nature] || "default";
+  };
+
+  // Handle create default accounts
+  const handleCreateDefaultAccounts = async () => {
+    // Fix: Check if branchId is available before mutation
+    if (!branchId) {
+      console.error("No branch ID available");
+      return;
+    }
+
+    try {
+      await createDefaultAccountsMutation.mutateAsync({ branchId });
+    } catch (error) {
+      console.error("Failed to create default accounts:", error);
+    }
+  };
+
+  // Render ledger item
+  const renderLedger = (ledger: Ledger): JSX.Element => (
+    <Card key={ledger.id} className="ml-8 hover:shadow-md transition-shadow duration-200">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="font-medium">{ledger.name}</span>
+                <span className="text-sm text-muted-foreground">({ledger.code})</span>
+              </div>
+              <div className="text-sm text-muted-foreground">{ledger.type}</div>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="font-semibold">{formatCurrency(ledger.balance)}</span>
+            <div className="flex items-center space-x-1">
+              <Button variant="ghost" size="sm">
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Render account group
+  const renderAccountGroup = (group: AccountGroup, level: number = 0): JSX.Element => {
+    const isExpanded = expandedNodes.has(group.id);
+    const hasChildren = group.children && group.children.length > 0;
+    const hasLedgers = group.ledgers && group.ledgers.length > 0;
+
+    return (
+      <div key={group.id} className="mb-2">
+        <Card
+          className={`hover:shadow-md transition-shadow duration-200 py-1 ${
+            level === 0 ? "shadow-sm" : ""
+          }`}
+          style={{ marginLeft: `${level * 20}px` }}
+        >
+          <CardContent className="p-2 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleNode(group.id)}
+                className="p-1 h-auto cursor-pointer"
+              >
+                {hasChildren || hasLedgers ? (
+                  isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )
+                ) : (
+                  <div className="w-4 h-4" />
+                )}
+              </Button>
+              <Folder className="w-5 h-5 text-amber-500" />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold">{group.name}</span>
+                  <span className="text-sm text-muted-foreground">({group.code})</span>
+                  <Badge variant={getNatureVariant(group.nature)}>{group.nature}</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="font-bold">{formatCurrency(group.balance)}</span>
+              <div className="flex items-center space-x-1">
+                <Button variant="ghost" size="sm">
+                  <Plus className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isExpanded && (
+          <div className="mt-2 space-y-2">
+            {/* Render child groups */}
+            {group.children && group.children.map((child) => renderAccountGroup(child, level + 1))}
+
+            {/* Render ledgers */}
+            {group.ledgers && group.ledgers.map((ledger) => renderLedger(ledger))}
+          </div>
+        )}
+      </div>
     );
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleFilterChange = (value: string): void => {
+    setFilterNature(value as AccountNature | "All");
+  };
+
+  const handleReset = (): void => {
+    setSearchTerm("");
+    setFilterNature("All");
+  };
+
+  const handleRefresh = (): void => {
+    refetch();
+  };
+
+  // Loading state
   if (isLoading) {
     return (
-      <main className="p-6 space-y-3">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </main>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading chart of accounts...</p>
+        </div>
+      </div>
     );
   }
 
+  // Error state
   if (error) {
-    return <main className="p-6 text-destructive">Failed to load accounts.</main>;
-  }
-
-  if (!accounts || accounts.length === 0) {
     return (
-      <main className="p-6 text-center space-y-4">
-        <p className="text-muted-foreground">No accounts found.</p>
-        <AccountDialog
-          branchId={branchId!}
-          trigger={<p className="hover:underline cursor-pointer text-blue-600">Add One</p>}
-          onSuccess={() => refetch()}
-        />
-      </main>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <AlertDialog>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDialogDescription>
+              Failed to load chart of accounts.
+              {/* Fix: Safe error message handling */}
+              {error instanceof Error ? ` Error: ${error.message}` : " Please try again."}
+            </AlertDialogDescription>
+          </AlertDialog>
+          <div className="text-center">
+            <Button onClick={handleRefresh} className="mb-4">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Wallet className="w-5 h-5" />
-          Accounts
-        </h1>
-        <AccountDialog
-          branchId={branchId!}
-          trigger={
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Account
-            </Button>
-          }
-          onSuccess={() => refetch()}
-        />
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 py-3">
+        {/* Header */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Chart of Accounts</h1>
+              <p className="mt-2 text-muted-foreground">
+                Manage your account structure and ledgers
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Account Group
+              </Button>
+              {/* Only show Create Default Structure button if no accounts exist */}
+              {!hasAccounts && (
+                <Button
+                  variant="outline"
+                  onClick={handleCreateDefaultAccounts}
+                  disabled={createDefaultAccountsMutation.isPending || !branchId}
+                >
+                  {createDefaultAccountsMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Building className="w-4 h-4 mr-2" />
+                  )}
+                  Create Default Structure
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
 
-      <div className="rounded-md border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="border-r">Code</TableHead>
-              <TableHead className="border-r">Name</TableHead>
-              <TableHead className="border-r">Type</TableHead>
-              <TableHead className="border-r">Group</TableHead>
-              <TableHead className="border-r">Balance</TableHead>
-              <TableHead className="border-r">Status</TableHead>
-              <TableHead className="text-center">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {accounts.map((account) => (
-              <TableRow key={account.id}>
-                <TableCell className="border-r font-mono">{account.code}</TableCell>
-                <TableCell className="border-r font-medium">{account.name}</TableCell>
-                <TableCell className="border-r capitalize">
-                  {account.type.toLowerCase().replace(/([a-z])([A-Z])/g, "$1 $2")}
-                </TableCell>
-                <TableCell className="border-r">{account.accountGroup?.name}</TableCell>
-                <TableCell className="border-r">{account.balance}</TableCell>
-                <TableCell className="border-r">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      account.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                    }`}
+        {/* Filters */}
+        <Card className="mb-3 py-1">
+          <CardContent className="p-3">
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search accounts..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <Select value={filterNature} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by nature" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Types</SelectItem>
+                    <SelectItem value="Assets">Assets</SelectItem>
+                    <SelectItem value="Liabilities">Liabilities</SelectItem>
+                    <SelectItem value="Capital">Capital</SelectItem>
+                    <SelectItem value="Income">Income</SelectItem>
+                    <SelectItem value="Expenses">Expenses</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="ghost" onClick={handleReset}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
+              <Button variant="ghost" onClick={handleRefresh}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Account Tree */}
+        <div className="space-y-4">
+          {filteredAccounts.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                  <Folder className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <CardTitle className="mb-2">No accounts found</CardTitle>
+                <p className="text-muted-foreground mb-4">
+                  {!hasAccounts
+                    ? "No accounts have been created yet"
+                    : "Try adjusting your search or filters"}
+                </p>
+                {!hasAccounts && (
+                  <Button
+                    onClick={handleCreateDefaultAccounts}
+                    disabled={createDefaultAccountsMutation.isPending || !branchId}
                   >
-                    {account.isActive ? "Active" : "Inactive"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="focus:outline-none hover:bg-muted p-1 rounded-md">
-                      <MoreVertical className="w-5 h-5" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setEditAccountData(account);
-                          setEditDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer text-red-600 focus:bg-red-600"
-                        onClick={() => {
-                          setDeleteId(account.id);
-                          setDeleteName(account.name);
-                        }}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    {createDefaultAccountsMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Building className="w-4 h-4 mr-2" />
+                    )}
+                    Create Default Structure
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            filteredAccounts.map((account) => renderAccountGroup(account))
+          )}
+        </div>
+
+        <Separator className="my-4" />
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {(["Assets", "Liabilities", "Capital", "Income", "Expenses"] as const).map((nature) => {
+            const accounts = accountData?.filter((acc) => acc.nature === nature) || [];
+            const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+
+            return (
+              <Card key={nature} className="py-1">
+                <CardContent className="py-2 px-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">{nature}</p>
+                      <p className="text-2xl font-bold">{formatCurrency(total)}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                      <Folder className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
-
-      {/* Edit Dialog */}
-      <AccountDialog
-        mode="edit"
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        branchId={branchId!}
-        initialData={editAccountData}
-        onSuccess={() => {
-          setEditDialogOpen(false);
-          refetch();
-        }}
-      />
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the account <strong>{deleteName}</strong> and all its
-              associated transactions.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteId(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleDelete(deleteId!)}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </main>
+    </div>
   );
 };
 
-export default Page;
+export default AccountTreePage;
