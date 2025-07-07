@@ -8,13 +8,14 @@ import {
   Edit,
   Trash2,
   Folder,
-  FileText,
   Building,
   Filter,
   Search,
   RotateCcw,
   Loader2,
   AlertCircle,
+  Users,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogDescription } from "@/components/ui/alert-dialog";
@@ -60,7 +61,6 @@ interface AccountTreePageProps {
 
 const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchId }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["1", "2", "3"]));
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterNature, setFilterNature] = useState<AccountNature | "All">("All");
 
@@ -158,17 +158,17 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
 
   // Render ledger item
   const renderLedger = (ledger: Ledger): JSX.Element => (
-    <Card key={ledger.id} className="ml-8 hover:shadow-md transition-shadow duration-200">
+    <Card key={ledger.id} className="ml-8 p-0 hover:shadow-md transition-shadow duration-200">
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <FileText className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center space-x-2">
+            <User className="w-4 h-4 text-muted-foreground" />
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-medium">{ledger.name}</span>
                 <span className="text-sm text-muted-foreground">({ledger.code})</span>
+                <Badge>{ledger.type}</Badge>
               </div>
-              <div className="text-sm text-muted-foreground">{ledger.type}</div>
             </div>
           </div>
           <div className="flex items-center space-x-4">
@@ -196,9 +196,8 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
     return (
       <div key={group.id} className="mb-2">
         <Card
-          className={`hover:shadow-md transition-shadow duration-200 py-1 ${
-            level === 0 ? "shadow-sm" : ""
-          }`}
+          className={`hover:shadow-md transition-shadow duration-200 py-1 ${level === 0 ? "shadow-sm" : ""
+            }`}
           style={{ marginLeft: `${level * 20}px` }}
         >
           <CardContent className="p-2 flex items-center justify-between">
@@ -207,7 +206,7 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
                 variant="ghost"
                 size="sm"
                 onClick={() => toggleNode(group.id)}
-                className="p-1 h-auto cursor-pointer"
+                className="p-1 h-7 w-7 cursor-pointer"
               >
                 {hasChildren || hasLedgers ? (
                   isExpanded ? (
@@ -219,7 +218,7 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
                   <div className="w-4 h-4" />
                 )}
               </Button>
-              <Folder className="w-5 h-5 text-amber-500" />
+              <Users className="w-5 h-5 text-amber-500" />
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="font-semibold">{group.name}</span>
@@ -231,13 +230,13 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
             <div className="flex items-center space-x-4">
               <span className="font-bold">{formatCurrency(group.balance)}</span>
               <div className="flex items-center space-x-1">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
                   <Plus className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
                   <Edit className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7 text-red-500 hover:text-red-500">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
