@@ -277,7 +277,7 @@ model AccountGroup {
   id        String             @id @default(uuid())
   name      String
   code      String
-  balance   Decimal
+  balance   Decimal            @default(0)
   nature    AccountGroupNature
   parent    AccountGroup?      @relation("GroupHierarchy", fields: [parentId], references: [id])
   parentId  String?

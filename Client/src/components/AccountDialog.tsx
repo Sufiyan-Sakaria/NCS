@@ -28,9 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAccountGroups } from "@/hooks/UseAccountGroup";
-import { useCreateAccount, useUpdateAccount } from "@/hooks/UseAccount";
-import { Account } from "@/types/Account";
+import { useAccountGroups, useCreateLedger, useUpdateLedger } from "@/hooks/UseAccount";
+import { Account } from "@/types/Ledger";
 import { accountFormSchema, AccountFormValues } from "@/validations/account";
 import { Loader2 } from "lucide-react";
 
@@ -55,8 +54,8 @@ export function AccountDialog({
 }: AccountDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: accountGroups } = useAccountGroups(branchId);
-  const { mutate: createAccount, isPending: isCreating } = useCreateAccount(branchId);
-  const { mutate: updateAccount, isPending: isUpdating } = useUpdateAccount(branchId);
+  const { mutate: createAccount, isPending: isCreating } = useCreateLedger(branchId);
+  const { mutate: updateAccount, isPending: isUpdating } = useUpdateLedger(branchId);
 
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
@@ -97,7 +96,7 @@ export function AccountDialog({
             onSuccess?.();
           },
           onError: () => toast.error("Failed to update account"),
-        },
+        }
       );
     } else {
       createAccount(

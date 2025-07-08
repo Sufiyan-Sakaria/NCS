@@ -1,37 +1,9 @@
 import api from "@/lib/axios";
+import { AccountGroup } from "@/types/AccountGroup";
+import { Ledger } from "@/types/Ledger";
 import { AxiosResponse } from "axios";
 
-// ============ Types ============
-
-export interface AccountGroup {
-  id: string;
-  name: string;
-  code: string;
-  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
-  parentId?: string;
-  balance: number;
-  children: AccountGroup[];
-  ledgers: Ledger[];
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Ledger {
-  id: string;
-  name: string;
-  code: string;
-  type: string;
-  phone1?: string;
-  phone2?: string;
-  balance: number;
-  openingBalance: number;
-  accountGroupId: string;
-  branchId: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// ============ Type ============
 
 export interface FlatAccountGroup {
   id: string;
@@ -52,7 +24,6 @@ export interface FlatAccountGroup {
 
 export interface CreateAccountGroupPayload {
   name: string;
-  code: string;
   balance?: number;
   nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
   parentId?: string;
@@ -62,7 +33,6 @@ export interface CreateAccountGroupPayload {
 export interface UpdateAccountGroupPayload {
   id: string;
   name: string;
-  code: string;
   balance?: number;
   nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
   parentId?: string;
@@ -82,6 +52,7 @@ export interface CreateLedgerPayload {
   accountGroupId: string;
   branchId: string;
   financialYearId?: string;
+  createdBy: string;
 }
 
 export interface UpdateLedgerPayload {
@@ -92,6 +63,7 @@ export interface UpdateLedgerPayload {
   phone1?: string;
   phone2?: string;
   accountGroupId: string;
+  updatedBy: string;
 }
 
 export interface DeleteLedgerPayload {

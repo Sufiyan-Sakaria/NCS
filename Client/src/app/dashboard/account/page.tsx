@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Users,
   User,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,41 +33,22 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { useHierarchicalAccounts, useCreateDefaultAccounts } from "@/hooks/UseAccount";
 import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { AccountGroupDialog } from "@/components/AccountGroupDialog";
+import { NextPage } from "next";
+import { AccountGroup, Nature, EditableAccountGroup } from "@/types/AccountGroup";
+import { Ledger } from "@/types/Ledger";
 
-// Type definitions
-interface Ledger {
-  id: string;
-  name: string;
-  code: string;
-  balance: number;
-  type: string;
-}
-
-interface AccountGroup {
-  id: string;
-  name: string;
-  code: string;
-  nature: AccountNature;
-  balance: number;
-  children: AccountGroup[];
-  ledgers: Ledger[];
-}
-
-type AccountNature = "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
-
-interface AccountTreePageProps {
-  // branchId is now optional since we'll get it from the hook
-  branchId?: string;
-}
-
-const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchId }) => {
+const AccountTreePage: NextPage = () => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["1", "2", "3"]));
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filterNature, setFilterNature] = useState<AccountNature | "All">("All");
+  const [filterNature, setFilterNature] = useState<Nature | "All">("All");
+  const [selectedGroup, setSelectedGroup] = useState<EditableAccountGroup | null>(null);
+  const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
+
 
   // Get branchId from Redux store
   const activeBranchId = useActiveBranchId();
-  const branchId = propBranchId || activeBranchId;
+  const branchId = activeBranchId || "";
 
   // React Query hooks
   const { data: accountData, isLoading, error, refetch } = useHierarchicalAccounts(branchId);
@@ -79,7 +61,6 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
 
   // Debug logging
   console.log("Debug Info:", {
-    propBranchId,
     activeBranchId,
     finalBranchId: branchId,
     isLoading,
@@ -101,21 +82,50 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
     setExpandedNodes(newExpanded);
   };
 
-  // Filter accounts based on search and nature filter
+  // Recursively filter account groups and their children/ledgers
   const filteredAccounts = useMemo((): AccountGroup[] => {
-    if (!accountData) return [];
+    if (!accountData || searchTerm === "") {
+      return accountData || [];
+    }
 
-    return accountData.filter((account) => {
-      const matchesSearch =
-        searchTerm === "" ||
-        account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        account.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const expanded = new Set<string>();
 
-      const matchesNature = filterNature === "All" || account.nature === filterNature;
+    const filterTree = (group: AccountGroup): AccountGroup | null => {
+      const matchesGroup =
+        group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.code.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesSearch && matchesNature;
-    });
-  }, [accountData, searchTerm, filterNature]);
+      const matchedLedgers = group.ledgers?.filter(
+        (ledger) =>
+          ledger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ledger.code.toLowerCase().includes(searchTerm.toLowerCase())
+      ) || [];
+
+      const matchedChildren = group.children
+        ?.map(filterTree)
+        .filter((g): g is AccountGroup => g !== null) || [];
+
+      // If current group or any of its children or ledgers matched
+      if (matchesGroup || matchedLedgers.length > 0 || matchedChildren.length > 0) {
+        expanded.add(group.id);
+        return {
+          ...group,
+          children: matchedChildren,
+          ledgers: matchedLedgers,
+        };
+      }
+
+      return null;
+    };
+
+    const result = accountData
+      .map(filterTree)
+      .filter((g): g is AccountGroup => g !== null);
+
+    setExpandedNodes(expanded);
+    return result;
+  }, [accountData, searchTerm]);
+
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -129,9 +139,9 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
 
   // Get nature color variant
   const getNatureVariant = (
-    nature: AccountNature,
+    nature: Nature,
   ): "default" | "destructive" | "secondary" | "outline" => {
-    const variants: Record<AccountNature, "default" | "destructive" | "secondary" | "outline"> = {
+    const variants: Record<Nature, "default" | "destructive" | "secondary" | "outline"> = {
       Assets: "default",
       Liabilities: "destructive",
       Capital: "secondary",
@@ -157,73 +167,79 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
   };
 
   // Render ledger item
-  const renderLedger = (ledger: Ledger): JSX.Element => (
-    <Card key={ledger.id} className="ml-8 p-0 hover:shadow-md transition-shadow duration-200">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <User className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-medium">{ledger.name}</span>
-                <span className="text-sm text-muted-foreground">({ledger.code})</span>
-                <Badge>{ledger.type}</Badge>
+  const renderLedger = (
+    ledger: Ledger,
+    level: number = 0,
+    parentName: string = ""
+  ): JSX.Element => (
+    <div key={ledger.id} style={{ marginLeft: `${(level + 1) * 15}px` }}>
+      <Card className="p-0 hover:shadow-md transition-shadow duration-200">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">{ledger.name}</span>
+                  <span className="text-sm text-muted-foreground">({ledger.code})</span>
+                  <Badge variant="secondary">{parentName}</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="font-semibold">{formatCurrency(ledger.balance)}</span>
+              <div className="flex items-center space-x-1">
+                <Button variant="ghost" size="sm">
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="font-semibold">{formatCurrency(ledger.balance)}</span>
-            <div className="flex items-center space-x-1">
-              <Button variant="ghost" size="sm">
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 
-  // Render account group
-  const renderAccountGroup = (group: AccountGroup, level: number = 0): JSX.Element => {
+
+  // Updated renderAccountGroup function with sorting logic
+  const renderAccountGroup = (
+    group: AccountGroup,
+    level: number = 0,
+    parentName: string = ""
+  ): JSX.Element => {
     const isExpanded = expandedNodes.has(group.id);
     const hasChildren = group.children && group.children.length > 0;
     const hasLedgers = group.ledgers && group.ledgers.length > 0;
 
     return (
-      <div key={group.id} className="mb-2">
-        <Card
-          className={`hover:shadow-md transition-shadow duration-200 py-1 ${level === 0 ? "shadow-sm" : ""
-            }`}
-          style={{ marginLeft: `${level * 20}px` }}
-        >
+      <div key={group.id} className="mb-2" style={{ marginLeft: `${level * 15}px` }}>
+        <Card className={`hover:shadow-md transition-shadow duration-200 py-1 ${level === 0 ? "shadow-sm" : ""}`}>
           <CardContent className="p-2 flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => toggleNode(group.id)}
-                className="p-1 h-7 w-7 cursor-pointer"
-              >
-                {hasChildren || hasLedgers ? (
-                  isExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )
-                ) : (
-                  <div className="w-4 h-4" />
-                )}
-              </Button>
-              <Users className="w-5 h-5 text-amber-500" />
+              {(hasChildren || hasLedgers) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleNode(group.id)}
+                  className="p-1 h-7 w-7 cursor-pointer"
+                >
+                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </Button>
+              )}
+
+              <Users
+                className={`w-5 h-5 text-amber-500 ${!(hasChildren || hasLedgers) && "ml-2"}`}
+              />
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="font-semibold">{group.name}</span>
                   <span className="text-sm text-muted-foreground">({group.code})</span>
-                  <Badge variant={getNatureVariant(group.nature)}>{group.nature}</Badge>
+                  <Badge variant={getNatureVariant(group.nature)}>
+                    {parentName || group.nature}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -233,7 +249,22 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
                 <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
                   <Plus className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer w-7 h-7"
+                  onClick={() => {
+                    setSelectedGroup({
+                      id: group.id,
+                      name: group.name,
+                      code: group.code,
+                      nature: group.nature,
+                      parentId: group.parentId,
+                      branchId: branchId,
+                    });
+                    setEditGroupDialogOpen(true);
+                  }}
+                >
                   <Edit className="w-4 h-4" />
                 </Button>
                 <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7 text-red-500 hover:text-red-500">
@@ -246,23 +277,49 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
 
         {isExpanded && (
           <div className="mt-2 space-y-2">
-            {/* Render child groups */}
-            {group.children && group.children.map((child) => renderAccountGroup(child, level + 1))}
+            {(() => {
+              const childrenWithType = (group.children || []).map(child => ({
+                ...child,
+                type: 'group' as const,
+                sortCode: child.code
+              }));
+              const ledgersWithType = (group.ledgers || []).map(ledger => ({
+                ...ledger,
+                type: 'ledger' as const,
+                sortCode: ledger.code
+              }));
+              const allItems = [...childrenWithType, ...ledgersWithType].sort((a, b) => {
+                const aCode = a.sortCode.split('.').map(Number);
+                const bCode = b.sortCode.split('.').map(Number);
+                for (let i = 0; i < Math.max(aCode.length, bCode.length); i++) {
+                  const aNum = aCode[i] || 0;
+                  const bNum = bCode[i] || 0;
+                  if (aNum !== bNum) return aNum - bNum;
+                }
+                return 0;
+              });
 
-            {/* Render ledgers */}
-            {group.ledgers && group.ledgers.map((ledger) => renderLedger(ledger))}
+              return allItems.map(item => {
+                if (item.type === 'group') {
+                  return renderAccountGroup(item, level + 1, group.name);
+                } else {
+                  return renderLedger(item, level, group.name);
+                }
+              });
+            })()}
           </div>
         )}
       </div>
     );
   };
 
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value);
   };
 
   const handleFilterChange = (value: string): void => {
-    setFilterNature(value as AccountNature | "All");
+    setFilterNature(value as Nature | "All");
   };
 
   const handleReset = (): void => {
@@ -323,10 +380,15 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Account Group
-              </Button>
+              <AccountGroupDialog
+                branchId={branchId}
+                trigger={
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Account Group
+                  </Button>
+                }
+              />
               {/* Only show Create Default Structure button if no accounts exist */}
               {!hasAccounts && (
                 <Button
@@ -358,9 +420,23 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
                     placeholder="Search accounts..."
                     value={searchTerm}
                     onChange={handleSearchChange}
-                    className="pl-10"
+                    className="pl-10 pr-8"
                   />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setExpandedNodes(new Set())
+                      }
+                      }
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
+
               </div>
               <div className="flex items-center space-x-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
@@ -450,7 +526,19 @@ const AccountTreePage: React.FC<AccountTreePageProps> = ({ branchId: propBranchI
           })}
         </div>
       </div>
-    </div>
+      <AccountGroupDialog
+        mode="edit"
+        branchId={branchId}
+        initialData={selectedGroup}
+        open={editGroupDialogOpen}
+        onOpenChange={setEditGroupDialogOpen}
+        onSuccess={() => {
+          refetch();
+          setEditGroupDialogOpen(false);
+          setSelectedGroup(null);
+        }}
+      />
+    </div >
   );
 };
 

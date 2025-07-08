@@ -80,19 +80,78 @@ export const createAccountGroup = async (
   next: NextFunction
 ) => {
   try {
-    const { name, code, balance, nature, parentId, branchId } = req.body;
+    const { name, nature, parentId, branchId } = req.body;
     const userId = req.user?.id;
 
-    // Validate required fields
-    if (!name || !code || !nature || !branchId) {
+    if (!name || !nature || !branchId) {
       return next(new AppError("Missing required fields", 400));
+    }
+
+    let newCode = "";
+
+    if (parentId) {
+      // Get parent group code
+      const parent = await prisma.accountGroup.findUnique({
+        where: { id: parentId },
+        select: { code: true },
+      });
+
+      if (!parent) {
+        return next(new AppError("Parent group not found", 404));
+      }
+
+      const parentCode = parent.code;
+
+      // Fetch all children codes under this parent (both groups and ledgers)
+      const [groupChildren, ledgerChildren] = await Promise.all([
+        prisma.accountGroup.findMany({
+          where: { parentId, branchId, isActive: true },
+          select: { code: true },
+        }),
+        prisma.ledger.findMany({
+          where: { accountGroupId: parentId, branchId, isActive: true },
+          select: { code: true },
+        }),
+      ]);
+
+      const suffixes = [...groupChildren, ...ledgerChildren]
+        .map((item) => {
+          const parts = item.code.split(".");
+          return parseInt(parts[parts.length - 1], 10);
+        })
+        .filter((n) => !isNaN(n));
+
+      const nextSuffix = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+      newCode = `${parentCode}.${nextSuffix}`;
+    } else {
+      // Top-level group
+      const [rootGroups, rootLedgers] = await Promise.all([
+        prisma.accountGroup.findMany({
+          where: { parentId: null, branchId, isActive: true },
+          select: { code: true },
+        }),
+        prisma.ledger.findMany({
+          where: { accountGroup: { parentId: null }, branchId, isActive: true },
+          select: { code: true },
+        }),
+      ]);
+
+      const rootSuffixes = [...rootGroups, ...rootLedgers]
+        .map((item) => {
+          const parts = item.code.split(".");
+          return parseInt(parts[0], 10);
+        })
+        .filter((n) => !isNaN(n));
+
+      const nextRoot =
+        rootSuffixes.length > 0 ? Math.max(...rootSuffixes) + 1 : 1;
+      newCode = `${nextRoot}`;
     }
 
     const accountGroup = await prisma.accountGroup.create({
       data: {
         name,
-        code,
-        balance: balance || 0,
+        code: newCode,
         nature,
         parentId,
         branchId,
