@@ -37,6 +37,7 @@ import { AccountGroupDialog } from "@/components/AccountGroupDialog";
 import { NextPage } from "next";
 import { AccountGroup, Nature, EditableAccountGroup } from "@/types/AccountGroup";
 import { Ledger } from "@/types/Ledger";
+import { LedgerDialog } from "@/components/LedgerDialog";
 
 const AccountTreePage: NextPage = () => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["1", "2", "3"]));
@@ -246,9 +247,11 @@ const AccountTreePage: NextPage = () => {
             <div className="flex items-center space-x-4">
               <span className="font-bold">{formatCurrency(group.balance)}</span>
               <div className="flex items-center space-x-1">
-                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
+                <LedgerDialog branchId={branchId} initialData={{
+                  accountGroupId: group.id
+                }} trigger={<Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
                   <Plus className="w-4 h-4" />
-                </Button>
+                </Button>} onSuccess={refetch} />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -315,7 +318,12 @@ const AccountTreePage: NextPage = () => {
 
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setSearchTerm(e.target.value);
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (value === "") {
+      setExpandedNodes(new Set());
+    }
   };
 
   const handleFilterChange = (value: string): void => {
@@ -423,17 +431,17 @@ const AccountTreePage: NextPage = () => {
                     className="pl-10 pr-8"
                   />
                   {searchTerm && (
-                    <button
-                      type="button"
+                    <Button
+                      variant={"ghost"}
                       onClick={() => {
                         setSearchTerm("");
                         setExpandedNodes(new Set())
                       }
                       }
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer rounded-full"
                     >
-                      <XCircle className="w-5 h-5" />
-                    </button>
+                      <XCircle className="w-6 h-6" />
+                    </Button>
                   )}
                 </div>
 

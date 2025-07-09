@@ -44,7 +44,6 @@ export interface DeleteAccountGroupPayload {
 
 export interface CreateLedgerPayload {
   name: string;
-  code: string;
   type: string;
   phone1?: string;
   phone2?: string;
@@ -52,13 +51,11 @@ export interface CreateLedgerPayload {
   accountGroupId: string;
   branchId: string;
   financialYearId?: string;
-  createdBy: string;
 }
 
 export interface UpdateLedgerPayload {
   id: string;
   name: string;
-  code: string;
   type: string;
   phone1?: string;
   phone2?: string;

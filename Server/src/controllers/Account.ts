@@ -314,7 +314,6 @@ export const createLedger = async (
   try {
     const {
       name,
-      code,
       type,
       phone1,
       phone2,
@@ -326,17 +325,51 @@ export const createLedger = async (
     const userId = req.user?.id;
 
     // Validate required fields
-    if (!name || !code || !type || !accountGroupId || !branchId) {
+    if (!name || !type || !accountGroupId || !branchId) {
       return next(new AppError("Missing required fields", 400));
     }
 
     // Start transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Get parent group code
+      const parentGroup = await tx.accountGroup.findUnique({
+        where: { id: accountGroupId },
+        select: { code: true },
+      });
+
+      if (!parentGroup) {
+        throw new AppError("Account group not found", 404);
+      }
+
+      const parentCode = parentGroup.code;
+
+      // Get sibling codes (ledgers + subgroups)
+      const [groupChildren, ledgerChildren] = await Promise.all([
+        tx.accountGroup.findMany({
+          where: { parentId: accountGroupId, branchId, isActive: true },
+          select: { code: true },
+        }),
+        tx.ledger.findMany({
+          where: { accountGroupId, branchId, isActive: true },
+          select: { code: true },
+        }),
+      ]);
+
+      const suffixes = [...groupChildren, ...ledgerChildren]
+        .map((item) => {
+          const parts = item.code.split(".");
+          return parseInt(parts[parts.length - 1], 10);
+        })
+        .filter((n) => !isNaN(n));
+
+      const nextSuffix = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+      const newCode = `${parentCode}.${nextSuffix}`;
+
       // Create ledger
       const ledger = await tx.ledger.create({
         data: {
           name,
-          code,
+          code: newCode,
           type,
           phone1: phone1 || "",
           phone2: phone2 || "",
@@ -353,16 +386,46 @@ export const createLedger = async (
 
       // Create opening balance journal entry if opening balance is not zero
       if (openingBalance && openingBalance !== 0) {
-        // Get account group nature to determine debit/credit
+        // 1. Get nature of the account to determine DR/CR
         const accountGroup = await tx.accountGroup.findUnique({
           where: { id: accountGroupId },
         });
 
-        if (!accountGroup) {
-          throw new AppError("Account group not found", 404);
+        if (!accountGroup) throw new AppError("Account group not found", 404);
+
+        // 2. Get or Create Capital Account Group
+        let capitalGroup = await tx.accountGroup.findFirst({
+          where: {
+            branchId,
+            nature: "Capital",
+            isActive: true,
+          },
+        });
+
+        if (!capitalGroup) {
+          const siblings = await tx.accountGroup.findMany({
+            where: { branchId, parentId: null },
+            select: { code: true },
+          });
+
+          const suffixes = siblings
+            .map((g) => parseInt(g.code.split(".")[0]))
+            .filter((n) => !isNaN(n));
+          const nextCode = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+
+          capitalGroup = await tx.accountGroup.create({
+            data: {
+              name: "Capital",
+              code: `${nextCode}`,
+              nature: "Capital",
+              balance: 0,
+              branchId,
+              createdBy: userId,
+            },
+          });
         }
 
-        // Find or create Capital account for contra entry
+        // 3. Get or Create Owner's Capital Ledger under Capital Group
         let capitalAccount = await tx.ledger.findFirst({
           where: {
             branchId,
@@ -372,34 +435,37 @@ export const createLedger = async (
         });
 
         if (!capitalAccount) {
-          // Find Capital account group
-          let capitalGroup = await tx.accountGroup.findFirst({
-            where: {
-              branchId,
-              nature: "Capital",
-              isActive: true,
-            },
-          });
-
-          if (!capitalGroup) {
-            // Create Capital account group if it doesn't exist
-            capitalGroup = await tx.accountGroup.create({
-              data: {
-                name: "Capital",
-                code: "3",
-                balance: 0,
-                nature: "Capital",
+          // Get sibling codes (groups and ledgers) under Capital group
+          const [childGroups, childLedgers] = await Promise.all([
+            tx.accountGroup.findMany({
+              where: { parentId: capitalGroup.id, branchId, isActive: true },
+              select: { code: true },
+            }),
+            tx.ledger.findMany({
+              where: {
+                accountGroupId: capitalGroup.id,
                 branchId,
-                createdBy: userId,
+                isActive: true,
               },
-            });
-          }
+              select: { code: true },
+            }),
+          ]);
 
-          // Create Capital ledger
+          const suffixes = [...childGroups, ...childLedgers]
+            .map((item) => {
+              const parts = item.code.split(".");
+              return parseInt(parts[parts.length - 1], 10);
+            })
+            .filter((n) => !isNaN(n));
+          const nextSuffix =
+            suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+
+          const newCode = `${capitalGroup.code}.${nextSuffix}`;
+
           capitalAccount = await tx.ledger.create({
             data: {
               name: "Owner's Capital",
-              code: "CAP001",
+              code: newCode,
               type: "OwnerCapital",
               phone1: "",
               phone2: "",
@@ -412,38 +478,40 @@ export const createLedger = async (
           });
         }
 
-        // Create journal for opening balance
-        const journal = await tx.journal.create({
-          data: {
-            label: `Opening Balance - ${ledger.name}`,
-            date: new Date(),
-            financialYearId,
+        // 4. Get existing journal for this branch and year
+        const journal = await tx.journal.findFirst({
+          where: {
             branchId,
-            narration: `Opening balance entry for ${ledger.name}`,
-            createdBy: userId,
+            financialYearId,
+            isActive: true,
           },
         });
 
-        // Determine debit/credit based on account nature and opening balance
+        if (!journal) {
+          throw new AppError(
+            "Journal book not found for this branch and financial year",
+            404
+          );
+        }
+
+        // 5. Determine Debit / Credit
         const isDebitBalance = openingBalance > 0;
         const isAssetOrExpense = ["Assets", "Expenses"].includes(
           accountGroup.nature
         );
 
-        let ledgerEntryType: "DEBIT" | "CREDIT";
-        let capitalEntryType: "DEBIT" | "CREDIT";
+        const ledgerEntryType = isAssetOrExpense
+          ? isDebitBalance
+            ? "DEBIT"
+            : "CREDIT"
+          : isDebitBalance
+          ? "CREDIT"
+          : "DEBIT";
 
-        if (isAssetOrExpense) {
-          // Assets and Expenses increase with debit
-          ledgerEntryType = isDebitBalance ? "DEBIT" : "CREDIT";
-          capitalEntryType = isDebitBalance ? "CREDIT" : "DEBIT";
-        } else {
-          // Liabilities, Capital, and Income increase with credit
-          ledgerEntryType = isDebitBalance ? "CREDIT" : "DEBIT";
-          capitalEntryType = isDebitBalance ? "DEBIT" : "CREDIT";
-        }
+        const capitalEntryType =
+          ledgerEntryType === "DEBIT" ? "CREDIT" : "DEBIT";
 
-        // Create journal entries
+        // 6. Create Journal Entries
         await tx.journalEntry.createMany({
           data: [
             {
@@ -465,7 +533,7 @@ export const createLedger = async (
           ],
         });
 
-        // Update capital account balance
+        // 7. Update Capital Ledger Balance
         await tx.ledger.update({
           where: { id: capitalAccount.id },
           data: {
