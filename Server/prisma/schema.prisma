@@ -33,24 +33,28 @@ model Branch {
   Product          Product[]
   Godown           Godown[]
   Unit             Unit[]
-  ProductLedger    ProductLedger[]
-  Journal          Journal[]
+  ProductBook      ProductBook[]
+  JournalBook      JournalBook[]
+  InvoiceBook      InvoiceBook[]
   AccountGroup     AccountGroup[]
   Ledger           Ledger[]
+  VoucherBook      VoucherBook[]
 
   @@index([companyId])
 }
 
 model FinancialYear {
-  id            String          @id @default(uuid())
-  startDate     DateTime
-  endDate       DateTime
-  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId     String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  ProductLedger ProductLedger[]
-  Journal       Journal[]
+  id          String        @id @default(uuid())
+  startDate   DateTime
+  endDate     DateTime
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  ProductBook ProductBook[]
+  JournalBook JournalBook[]
+  InvoiceBook InvoiceBook[]
+  VoucherBook VoucherBook[]
 
   @@index([companyId])
 }
@@ -82,13 +86,27 @@ model User {
   updatedGodowns              Godown[]             @relation("GodownUpdatedBy")
   createdStocks               ProductStock[]       @relation("ProductStockCreatedBy")
   updatedStocks               ProductStock[]       @relation("ProductStockUpdatedBy")
-  createdJournals             Journal[]            @relation("JournalCreatedBy")
-  updatedJournals             Journal[]            @relation("JournalUpdatedBy")
+  createdJournalBooks         JournalBook[]        @relation("JournalBookCreatedBy")
+  updatedJournalBooks         JournalBook[]        @relation("JournalBookUpdatedBy")
   createdEntries              JournalEntry[]       @relation("JournalEntryCreatedBy")
   updatedEntries              JournalEntry[]       @relation("JournalEntryUpdatedBy")
-  ProductLedgerEntry          ProductLedgerEntry[]
+  createdProductBooks         ProductBook[]        @relation("ProductBookCreatedBy")
+  updatedProductBooks         ProductBook[]        @relation("ProductBookUpdatedBy")
   createdProductLedgerEntries ProductLedgerEntry[] @relation("ProductLedgerEntryCreatedBy")
   updatedProductLedgerEntries ProductLedgerEntry[] @relation("ProductLedgerEntryUpdatedBy")
+  createdInvoiceBooks         InvoiceBook[]        @relation("InvoiceBookCreatedBy")
+  updatedInvoiceBooks         InvoiceBook[]        @relation("InvoiceBookUpdatedBy")
+  createdInvoices             Invoice[]            @relation("InvoiceCreatedBy")
+  updatedInvoices             Invoice[]            @relation("InvoiceUpdatedBy")
+  createdInvoiceItem          InvoiceItem[]        @relation("InvoiceItemCreatedBy")
+  updatedInvoiceItem          InvoiceItem[]        @relation("InvoiceItemUpdatedBy")
+  createdVoucherBooks         VoucherBook[]        @relation("VoucherBookCreatedBy")
+  updatedVoucherBooks         VoucherBook[]        @relation("VoucherBookUpdatedBy")
+  createdVouchers             Voucher[]            @relation("VoucherCreatedBy")
+  updatedVouchers             Voucher[]            @relation("VoucherUpdatedBy")
+  createdVoucherEntries       VoucherEntry[]       @relation("VoucherEntryCreatedBy")
+  updatedVoucherEntries       VoucherEntry[]       @relation("VoucherEntryUpdatedBy")
+  ProductLedgerEntry          ProductLedgerEntry[]
 
   @@index([createdBy])
   @@index([updatedBy])
@@ -215,6 +233,7 @@ model Product {
   updatedAt          DateTime             @updatedAt
   ProductStock       ProductStock[]
   ProductLedgerEntry ProductLedgerEntry[]
+  InvoiceItem        InvoiceItem[]
 
   createdByUser User? @relation("ProductCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id])
@@ -305,7 +324,7 @@ enum AccountGroupNature {
   Income
 }
 
-model ProductLedger {
+model ProductBook {
   id              String               @id @default(uuid())
   yearLabel       String
   financialYear   FinancialYear        @relation(fields: [financialYearId], references: [id], onDelete: Cascade)
@@ -313,41 +332,51 @@ model ProductLedger {
   branch          Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
   branchId        String
   entries         ProductLedgerEntry[]
+  createdBy       String?
+  updatedBy       String?
+  isActive        Boolean              @default(true)
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+
+  createdByUser User? @relation("ProductBookCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("ProductBookUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([financialYearId, branchId])
   @@index([financialYearId])
   @@index([branchId])
+  @@index([isActive])
 }
 
 model ProductLedgerEntry {
-  id              String          @id @default(uuid())
-  product         Product         @relation(fields: [productId], references: [id])
-  productId       String
-  productLedger   ProductLedger   @relation(fields: [productLedgerId], references: [id])
-  productLedgerId String
-  godown          Godown          @relation(fields: [godownId], references: [id])
-  godownId        String
-  date            DateTime
-  type            LedgerEntryType
-  qty             Float
-  thaan           Int
-  narration       String?
-  createdBy       String?
-  updatedBy       String?
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  product       Product         @relation(fields: [productId], references: [id])
+  productId     String
+  productBook   ProductBook     @relation(fields: [productBookId], references: [id])
+  productBookId String
+  godown        Godown          @relation(fields: [godownId], references: [id])
+  godownId      String
+  date          DateTime
+  type          LedgerEntryType
+  qty           Float
+  thaan         Int
+  narration     String?
+  createdBy     String?
+  updatedBy     String?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  createdByUser User?   @relation("ProductLedgerEntryCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User?   @relation("ProductLedgerEntryUpdatedBy", fields: [updatedBy], references: [id])
-  User          User?   @relation(fields: [userId], references: [id])
+  createdByUser User?    @relation("ProductLedgerEntryCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User?    @relation("ProductLedgerEntryUpdatedBy", fields: [updatedBy], references: [id])
+  User          User?    @relation(fields: [userId], references: [id])
   userId        String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  invoiceId     String?
 
   @@index([productId])
-  @@index([productLedgerId])
+  @@index([productBookId])
   @@index([godownId])
+  @@index([invoiceId])
 }
 
 enum LedgerEntryType {
@@ -374,6 +403,8 @@ model Ledger {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   JournalEntry   JournalEntry[]
+  Invoice        Invoice[]
+  VoucherEntry   VoucherEntry[]
 
   @@unique([name, branchId])
   @@index([accountGroupId])
@@ -415,49 +446,48 @@ enum LedgerType {
   MiscellaneousExpenses
 }
 
-model Journal {
+model JournalBook {
   id              String         @id @default(uuid())
-  label           String
-  date            DateTime
+  yearLabel       String
   financialYear   FinancialYear  @relation(fields: [financialYearId], references: [id], onDelete: Cascade)
   financialYearId String
   branch          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
   branchId        String
   entries         JournalEntry[]
-  narration       String?
-  isActive        Boolean        @default(true)
   createdBy       String?
   updatedBy       String?
+  isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  createdByUser User? @relation("JournalCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User? @relation("JournalUpdatedBy", fields: [updatedBy], references: [id])
+  createdByUser User? @relation("JournalBookCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("JournalBookUpdatedBy", fields: [updatedBy], references: [id])
 
+  @@unique([financialYearId, branchId])
   @@index([financialYearId])
   @@index([branchId])
   @@index([isActive])
 }
 
 model JournalEntry {
-  id        String    @id @default(uuid())
-  journal   Journal   @relation(fields: [journalId], references: [id])
-  journalId String
-  ledger    Ledger    @relation(fields: [ledgerId], references: [id])
-  ledgerId  String
-  type      EntryType
-  amount    Float
-  narration String?
-  isActive  Boolean   @default(true)
-  createdBy String?
-  updatedBy String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String      @id @default(uuid())
+  journal       JournalBook @relation(fields: [journalBookId], references: [id])
+  journalBookId String
+  ledger        Ledger      @relation(fields: [ledgerId], references: [id])
+  ledgerId      String
+  type          EntryType
+  amount        Float
+  narration     String?
+  isActive      Boolean     @default(true)
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   createdByUser User? @relation("JournalEntryCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("JournalEntryUpdatedBy", fields: [updatedBy], references: [id])
 
-  @@index([journalId])
+  @@index([journalBookId])
   @@index([ledgerId])
   @@index([isActive])
 }
@@ -465,4 +495,180 @@ model JournalEntry {
 enum EntryType {
   DEBIT
   CREDIT
+}
+
+model InvoiceBook {
+  id              String        @id @default(uuid())
+  yearLabel       String
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id], onDelete: Cascade)
+  financialYearId String
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId        String
+  type            InvoiceType
+  invoices        Invoice[]
+  createdBy       String?
+  updatedBy       String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  createdByUser User? @relation("InvoiceBookCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("InvoiceBookUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([financialYearId, branchId, type])
+  @@index([financialYearId])
+  @@index([branchId])
+  @@index([isActive])
+}
+
+enum InvoiceType {
+  PURCHASE
+  SALE
+  PURCHASE_RETURN
+  SALE_RETURN
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String
+  date          DateTime
+  type          InvoiceType
+  invoiceBook   InvoiceBook   @relation(fields: [invoiceBookId], references: [id])
+  invoiceBookId String
+  ledger        Ledger?       @relation(fields: [ledgerId], references: [id])
+  ledgerId      String?
+  totalAmount   Float
+  discount      Float         @default(0)
+  taxAmount     Float         @default(0)
+  grandTotal    Float
+  narration     String?
+  items         InvoiceItem[]
+  createdBy     String?
+  updatedBy     String?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  createdByUser      User?                @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser      User?                @relation("InvoiceUpdatedBy", fields: [updatedBy], references: [id])
+  ProductLedgerEntry ProductLedgerEntry[]
+  Voucher            Voucher[]
+
+  @@unique([invoiceBookId, invoiceNumber]) // Ensures unique numbering per book
+  @@index([invoiceBookId, date]) // Optimizes financial period queries
+  @@index([ledgerId, isActive]) // Speeds up active account queries
+  @@index([type, date, invoiceNumber]) // Type-specific reporting
+  @@index([createdAt]) // For audit trail queries
+}
+
+model InvoiceItem {
+  id        String   @id @default(uuid())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Float
+  rate      Float
+  discount  Float    @default(0)
+  taxRate   Float    @default(0)
+  amount    Float
+  createdBy String?
+  updatedBy String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByUser User? @relation("InvoiceItemCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("InvoiceItemUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@index([isActive])
+}
+
+model VoucherBook {
+  id              String        @id @default(uuid())
+  yearLabel       String
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id], onDelete: Cascade)
+  financialYearId String
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId        String
+  type            VoucherType
+  vouchers        Voucher[]
+  createdBy       String?
+  updatedBy       String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  createdByUser User? @relation("VoucherBookCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("VoucherBookUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([financialYearId, branchId, type])
+  @@index([financialYearId])
+  @@index([branchId])
+  @@index([isActive])
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  CONTRA
+  JOURNAL
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+model Voucher {
+  id            String         @id @default(uuid())
+  voucherNumber String
+  date          DateTime
+  type          VoucherType
+  voucherBook   VoucherBook    @relation(fields: [voucherBookId], references: [id])
+  voucherBookId String
+  reference     String?
+  narration     String?
+  totalAmount   Float
+  entries       VoucherEntry[]
+  createdBy     String?
+  updatedBy     String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  createdByUser User? @relation("VoucherCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("VoucherUpdatedBy", fields: [updatedBy], references: [id])
+
+  // Link to related invoice if applicable
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  invoiceId String?
+
+  @@unique([voucherBookId, voucherNumber])
+  @@index([voucherBookId, date])
+  @@index([type, date])
+  @@index([invoiceId])
+  @@index([isActive])
+}
+
+model VoucherEntry {
+  id        String    @id @default(uuid())
+  voucher   Voucher   @relation(fields: [voucherId], references: [id])
+  voucherId String
+  ledger    Ledger    @relation(fields: [ledgerId], references: [id])
+  ledgerId  String
+  type      EntryType
+  amount    Float
+  narration String?
+  createdBy String?
+  updatedBy String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  createdByUser User? @relation("VoucherEntryCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("VoucherEntryUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([voucherId])
+  @@index([ledgerId])
+  @@index([isActive])
 }
