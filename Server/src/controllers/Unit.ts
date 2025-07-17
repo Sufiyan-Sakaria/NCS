@@ -41,8 +41,9 @@ export const createUnit = async (
   next: NextFunction
 ) => {
   try {
-    const { name, abb, createdBy } = req.body;
+    const { name, abb } = req.body;
     const { branchId } = req.params;
+    const { id: userId } = req.user!;
 
     if (!name || !abb || !branchId) {
       return next(new AppError("Name, abb, and branchId are required", 400));
@@ -61,7 +62,7 @@ export const createUnit = async (
         name,
         abb,
         branchId,
-        createdBy,
+        createdBy: userId,
       },
     });
 
@@ -85,7 +86,8 @@ export const updateUnit = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, abb, updatedBy } = req.body;
+    const { name, abb } = req.body;
+    const { id: userId } = req.user!;
 
     const unit = await prisma.unit.findUnique({ where: { id } });
 
@@ -98,7 +100,7 @@ export const updateUnit = async (
       data: {
         name,
         abb,
-        updatedBy,
+        updatedBy: userId,
       },
     });
 

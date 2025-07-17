@@ -12,6 +12,7 @@ import Godown from "./Godown";
 import Product from "./Product";
 import ProductLedger from "./ProductLedger";
 import Account from "./Account";
+import { protect } from "../middlewares/authentication";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -30,22 +31,22 @@ router.use("/branch", Branch);
 router.use("/auth", Auth);
 
 // Brand Routes
-router.use("/brand", Brand);
+router.use("/brand", protect, Brand);
 
 // Category Routes
-router.use("/category", Category);
+router.use("/category", protect, Category);
 
 // Unit Routes
-router.use("/unit", Unit);
+router.use("/unit", protect, Unit);
 
 // Godown Routes
-router.use("/godown", Godown);
+router.use("/godown", protect, Godown);
 
 // Product Routes
-router.use("/product", Product);
+router.use("/product", protect, Product);
 
 // Product Ledger Routes
-router.use("/product-ledger", ProductLedger);
+router.use("/product-ledger", protect, ProductLedger);
 
 // Account & Ledger Routes
 router.use("/account", Account);

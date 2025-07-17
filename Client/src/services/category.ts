@@ -7,7 +7,6 @@ import { AxiosResponse } from "axios";
 export interface CreateCategoryPayload {
   name: string;
   abb: string;
-  createdBy: string;
   branchId: string;
 }
 
@@ -15,7 +14,6 @@ export interface UpdateCategoryPayload {
   id: string;
   name: string;
   abb: string;
-  updatedBy?: string;
 }
 
 export interface DeleteCategoryPayload {
@@ -37,7 +35,6 @@ export const createCategory = async (payload: CreateCategoryPayload): Promise<Ca
     {
       name: payload.name,
       abb: payload.abb,
-      createdBy: payload.createdBy,
     },
   );
   return response.data.data;
@@ -48,7 +45,6 @@ export const updateCategory = async (payload: UpdateCategoryPayload): Promise<Ca
   const response: AxiosResponse<{ data: Category }> = await api.put(`/category/${payload.id}`, {
     name: payload.name,
     abb: payload.abb,
-    ...(payload.updatedBy && { updatedBy: payload.updatedBy }),
   });
   return response.data.data;
 };

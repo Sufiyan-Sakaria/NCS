@@ -471,6 +471,7 @@ model JournalBook {
 
 model JournalEntry {
   id            String      @id @default(uuid())
+  date          DateTime    @default(now())
   journal       JournalBook @relation(fields: [journalBookId], references: [id])
   journalBookId String
   ledger        Ledger      @relation(fields: [ledgerId], references: [id])

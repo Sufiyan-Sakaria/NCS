@@ -41,8 +41,9 @@ export const createCategory = async (
   next: NextFunction
 ) => {
   try {
-    const { name, abb, createdBy } = req.body;
+    const { name, abb } = req.body;
     const { branchId } = req.params;
+    const { id: userId } = req.user!;
 
     if (!name || !abb || !branchId) {
       return next(new AppError("Name, abb, and branchId are required", 400));
@@ -61,7 +62,7 @@ export const createCategory = async (
         name,
         abb,
         branchId,
-        createdBy,
+        createdBy: userId,
       },
     });
 
@@ -87,7 +88,8 @@ export const updateCategory = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, abb, updatedBy } = req.body;
+    const { name, abb } = req.body;
+    const { id: userId } = req.user!;
 
     const category = await prisma.category.findUnique({ where: { id } });
 
@@ -100,7 +102,7 @@ export const updateCategory = async (
       data: {
         name,
         abb,
-        updatedBy,
+        updatedBy: userId,
       },
     });
 

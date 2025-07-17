@@ -19,12 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calendar as CalendarIcon,
-  Filter,
   TrendingUp,
   TrendingDown,
   Package,
@@ -87,7 +86,7 @@ const ProductEntriesPage: NextPage = () => {
   }
 
   return (
-    <main className="p-6 space-y-6">
+    <main className="p-4 space-y-3">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Product Ledger</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -97,23 +96,17 @@ const ProductEntriesPage: NextPage = () => {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <Card className="pb-3 py-1">
+        <CardContent className="py-2 px-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* Product */}
-            <div className="space-y-1">
+            <div className="space-y-1 col-span-2">
               <label className="text-sm font-medium">Product</label>
               <Select
                 value={selectedProductId}
                 onValueChange={setSelectedProductId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full h-10">
                   <SelectValue placeholder="Select Product" />
                 </SelectTrigger>
                 <SelectContent>
@@ -125,6 +118,7 @@ const ProductEntriesPage: NextPage = () => {
                 </SelectContent>
               </Select>
             </div>
+
 
             {/* From Date */}
             <div className="space-y-1">
@@ -212,7 +206,7 @@ const ProductEntriesPage: NextPage = () => {
       {/* Summary Cards */}
       {summary && selectedProductId && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="py-1">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>

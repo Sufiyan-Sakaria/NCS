@@ -42,6 +42,7 @@ import { EditBrandDialog } from "@/components/EditBrandDialog";
 const Page: NextPage = () => {
     const branchId = useActiveBranchId();
     const { data: brands, isLoading, error, refetch } = useBrands(branchId!);
+    console.log(brands)
     const { mutate: deleteBrandMutate, isPending: isDeleting } = useDeleteBrand(branchId!);
 
     const [deleteBrandId, setDeleteBrandId] = useState<string | null>(null);

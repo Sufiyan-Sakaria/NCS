@@ -10,6 +10,7 @@ import { useDispatch } from "react-redux";
 import { setUser } from "@/redux/slices/authSlice";
 import { useLogin } from "@/hooks/UseAuth";
 import { Eye, EyeOff } from "lucide-react";
+import { Role } from "@/types/Role";
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
     const dispatch = useDispatch();
@@ -34,6 +35,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 dispatch(
                     setUser({
                         ...data.user,
+                        role: data.user.role as Role,
                         branches: data.branches,
                     }),
                 );

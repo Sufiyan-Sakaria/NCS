@@ -34,8 +34,9 @@ export const createGodown = async (
   next: NextFunction
 ) => {
   try {
-    const { name, address, createdBy } = req.body;
+    const { name, address } = req.body;
     const { branchId } = req.params;
+    const { id: userId } = req.user!;
 
     if (!name || !address || !branchId) {
       return next(
@@ -51,7 +52,7 @@ export const createGodown = async (
         name,
         address,
         branchId,
-        createdBy,
+        createdBy: userId,
       },
     });
 
@@ -75,7 +76,8 @@ export const updateGodown = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, address, updatedBy } = req.body;
+    const { name, address } = req.body;
+    const { id: userId } = req.user!;
 
     const godown = await prisma.godown.findUnique({ where: { id } });
     if (!godown || !godown.isActive)
@@ -86,7 +88,7 @@ export const updateGodown = async (
       data: {
         name,
         address,
-        updatedBy,
+        updatedBy: userId,
       },
     });
 

@@ -103,35 +103,28 @@ export const login = async (
   }
 };
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    companyId: string;
-  };
-}
-
 export const verify = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    if (!req.user) {
+    const user = req.user;
+
+    if (!user) {
       return next(new AppError("Unauthorized", 401));
     }
 
     let branches = [];
 
-    if (req.user.role === "owner") {
+    if (user.role === "owner") {
       branches = await prisma.branch.findMany({
-        where: { companyId: req.user.companyId },
+        where: { companyId: user.companyId },
         select: { id: true, name: true, address: true },
       });
     } else {
       const access = await prisma.userBranchAccess.findMany({
-        where: { userId: req.user.id, isActive: true },
+        where: { userId: user.id, isActive: true },
         include: {
           branch: {
             select: { id: true, name: true, address: true },
@@ -143,7 +136,7 @@ export const verify = async (
 
     res.status(200).json({
       success: true,
-      user: req.user,
+      user,
       branches,
     });
   } catch (error) {

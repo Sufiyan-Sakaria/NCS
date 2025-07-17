@@ -36,16 +36,10 @@ export const createProduct = async (
   res: Response,
   next: NextFunction
 ) => {
-  const {
-    name,
-    unitId,
-    brandId,
-    categoryId,
-    saleRate,
-    initialStocks,
-    createdBy,
-  } = req.body;
+  const { name, unitId, brandId, categoryId, saleRate, initialStocks } =
+    req.body;
   const { branchId } = req.params;
+  const { id: userId } = req.user!;
 
   if (
     !name ||
@@ -68,72 +62,68 @@ export const createProduct = async (
           brandId,
           categoryId,
           saleRate,
-          qty: 0,
-          thaan: 0,
           branchId,
-          createdBy,
+          createdBy: userId,
         },
       });
 
       let totalQty = 0;
       let totalThaan = 0;
 
-      // Get latest ledger
-      const ledger = await tx.productLedger.findFirst({
-        where: { branchId },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (!ledger) {
-        throw new AppError("No product ledger found for branch", 400);
-      }
-
-      if (!Array.isArray(initialStocks) || initialStocks.length === 0) {
-        throw new AppError("Initial stock required", 400);
-      }
-
-      // Process stock entries
-      for (const stock of initialStocks) {
-        const { godownId, qty, thaan } = stock;
-        if (!godownId || (qty === 0 && thaan === 0)) continue;
-
-        await tx.productStock.create({
-          data: {
-            productId: product.id,
-            unitId,
-            godownId,
-            qty,
-            thaan,
-            createdBy,
-          },
+      if (Array.isArray(initialStocks) && initialStocks.length > 0) {
+        // Get latest product book
+        const ledger = await tx.productBook.findFirst({
+          where: { branchId },
+          orderBy: { createdAt: "desc" },
         });
 
-        await tx.productLedgerEntry.create({
+        if (!ledger) {
+          throw new AppError("No product ledger found for branch", 400);
+        }
+
+        // Insert stock and ledger entries
+        for (const stock of initialStocks) {
+          const { godownId, qty = 0, thaan = 0 } = stock;
+          if (!godownId || (qty === 0 && thaan === 0)) continue;
+
+          await tx.productStock.create({
+            data: {
+              productId: product.id,
+              unitId,
+              godownId,
+              qty,
+              thaan,
+              createdBy: userId,
+            },
+          });
+
+          await tx.productLedgerEntry.create({
+            data: {
+              productId: product.id,
+              productBookId: ledger.id,
+              godownId,
+              type: "IN",
+              date: new Date(),
+              qty,
+              thaan,
+              narration: "Opening Stock",
+              createdBy: userId,
+            },
+          });
+
+          totalQty += qty;
+          totalThaan += thaan;
+        }
+
+        // Update qty and thaan if there were valid stocks
+        await tx.product.update({
+          where: { id: product.id },
           data: {
-            productId: product.id,
-            productLedgerId: ledger.id,
-            godownId,
-            type: "IN",
-            date: new Date(),
-            qty,
-            thaan,
-            narration: "Opening Stock",
-            createdBy,
+            qty: totalQty,
+            thaan: totalThaan,
           },
         });
-
-        totalQty += qty;
-        totalThaan += thaan;
       }
-
-      // Update final product qty and thaan
-      await tx.product.update({
-        where: { id: product.id },
-        data: {
-          qty: totalQty,
-          thaan: totalThaan,
-        },
-      });
 
       // Fetch and return updated product
       const updatedProduct = await tx.product.findUnique({
@@ -145,6 +135,7 @@ export const createProduct = async (
           createdByUser: { select: { id: true, name: true } },
         },
       });
+
       return updatedProduct;
     });
 
@@ -162,7 +153,8 @@ export const updateProduct = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, unitId, brandId, categoryId, saleRate, updatedBy } = req.body;
+    const { name, unitId, brandId, categoryId, saleRate } = req.body;
+    const { id: userId } = req.user!;
 
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product || !product.isActive) {
@@ -177,7 +169,7 @@ export const updateProduct = async (
         brandId,
         categoryId,
         saleRate,
-        updatedBy,
+        updatedBy: userId,
       },
     });
 

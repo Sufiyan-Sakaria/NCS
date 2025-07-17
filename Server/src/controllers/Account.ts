@@ -4,20 +4,9 @@ import { AppError } from "../utils/AppError";
 
 const prisma = new PrismaClient();
 
-// Extend Request interface to include user
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    companyId: string;
-  };
-}
-
 // GET all account groups by branch
 export const getAccountGroupsByBranch = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -45,7 +34,7 @@ export const getAccountGroupsByBranch = async (
 
 // GET single account group by ID
 export const getAccountGroupById = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -75,7 +64,7 @@ export const getAccountGroupById = async (
 
 // CREATE new account group
 export const createAccountGroup = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -171,7 +160,7 @@ export const createAccountGroup = async (
 
 // UPDATE account group
 export const updateAccountGroup = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -204,7 +193,7 @@ export const updateAccountGroup = async (
 
 // DELETE account group (soft delete)
 export const deleteAccountGroup = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -252,7 +241,7 @@ export const deleteAccountGroup = async (
 
 // GET all ledgers by branch
 export const getLedgersByBranch = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -275,7 +264,7 @@ export const getLedgersByBranch = async (
 
 // GET single ledger by ID
 export const getLedgerById = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -307,7 +296,7 @@ export const getLedgerById = async (
 
 // CREATE new ledger with opening balance journal entry
 export const createLedger = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -479,7 +468,7 @@ export const createLedger = async (
         }
 
         // 4. Get existing journal for this branch and year
-        const journal = await tx.journal.findFirst({
+        const journal = await tx.journalBook.findFirst({
           where: {
             branchId,
             financialYearId,
@@ -515,7 +504,7 @@ export const createLedger = async (
         await tx.journalEntry.createMany({
           data: [
             {
-              journalId: journal.id,
+              journalBookId: journal.id,
               ledgerId: ledger.id,
               type: ledgerEntryType,
               amount: Math.abs(openingBalance),
@@ -523,7 +512,7 @@ export const createLedger = async (
               createdBy: userId,
             },
             {
-              journalId: journal.id,
+              journalBookId: journal.id,
               ledgerId: capitalAccount.id,
               type: capitalEntryType,
               amount: Math.abs(openingBalance),
@@ -558,7 +547,7 @@ export const createLedger = async (
 
 // UPDATE ledger
 export const updateLedger = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -591,7 +580,7 @@ export const updateLedger = async (
 
 // DELETE ledger (soft delete)
 export const deleteLedger = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -628,7 +617,7 @@ export const deleteLedger = async (
 
 // CREATE default account structure
 export const createDefaultAccounts = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -953,7 +942,7 @@ export const createDefaultAccounts = async (
 
 // GET ledger balance and trial balance
 export const getTrialBalance = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -1037,7 +1026,7 @@ export const getTrialBalance = async (
 
 // GET ledger book (all journal entries) by ledger ID
 export const getLedgerBookByLedgerId = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -1076,9 +1065,6 @@ export const getLedgerBookByLedgerId = async (
       include: {
         journal: true,
       },
-      orderBy: {
-        journal: { date: "asc" },
-      },
     });
 
     let runningBalance = parseFloat(ledger.openingBalance.toString());
@@ -1095,7 +1081,7 @@ export const getLedgerBookByLedgerId = async (
       }
 
       ledgerBook.push({
-        date: entry.journal.date,
+        date: entry.date,
         narration: entry.narration,
         type: entry.type,
         amount,
@@ -1122,7 +1108,7 @@ export const getLedgerBookByLedgerId = async (
 
 // GET hierarchical account structure (groups + ledgers) by branch
 export const getHierarchicalAccountsByBranch = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {

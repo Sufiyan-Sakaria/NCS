@@ -47,7 +47,6 @@ export function AddBrandDialog({ trigger, onSuccess }: AddBrandDialogProps) {
       {
         name: brand.name.trim(),
         abb: brand.abb.trim(),
-        createdBy: userId,
         branchId,
       },
       {

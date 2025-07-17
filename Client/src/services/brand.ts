@@ -7,7 +7,6 @@ import { AxiosResponse } from "axios";
 export interface CreateBrandPayload {
   name: string;
   abb: string;
-  createdBy: string;
   branchId: string;
 }
 
@@ -30,25 +29,19 @@ export const getBrandByBranch = async (branchId: string): Promise<Brand[]> => {
 };
 
 // POST /brand/:branchId
-export const createBrand = async ({
-  name,
-  abb,
-  createdBy,
-  branchId,
-}: CreateBrandPayload): Promise<Brand> => {
-  const response: AxiosResponse<{ data: Brand }> = await api.post(`/brand/${branchId}`, {
-    name,
-    abb,
-    createdBy,
+export const createBrand = async (payload: CreateBrandPayload): Promise<Brand> => {
+  const response: AxiosResponse<{ data: Brand }> = await api.post(`/brand/${payload.branchId}`, {
+    name: payload.name,
+    abb: payload.abb,
   });
   return response.data.data;
 };
 
 // PUT /brand/:id
-export const updateBrand = async ({ id, name, abb }: UpdateBrandPayload): Promise<Brand> => {
-  const response: AxiosResponse<{ data: Brand }> = await api.put(`/brand/${id}`, {
-    name,
-    abb,
+export const updateBrand = async (payload: UpdateBrandPayload): Promise<Brand> => {
+  const response: AxiosResponse<{ data: Brand }> = await api.put(`/brand/${payload.id}`, {
+    name: payload.name,
+    abb: payload.abb,
   });
   return response.data.data;
 };

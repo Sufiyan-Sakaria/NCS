@@ -5,35 +5,26 @@ import { AppError } from "../utils/AppError";
 
 const prisma = new PrismaClient();
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    companyId: string;
-  };
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: string;
+  companyId: string;
 }
 
 export const protect = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const token = req.cookies.token;
     if (!token) {
-      return next(new AppError("Unauthorized - No token provided", 401));
+      return next(new AppError("Unauthorized - No token", 401));
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-      email: string;
-      role: string;
-      companyId: string;
-    };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as AuthUser;
 
-    // Check if user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
@@ -42,8 +33,7 @@ export const protect = async (
       return next(new AppError("Unauthorized - User not found", 401));
     }
 
-    // Attach user to request
-    req.user = {
+    (req as any).user = {
       id: user.id,
       email: user.email,
       role: user.role,
@@ -52,6 +42,6 @@ export const protect = async (
 
     next();
   } catch (error) {
-    return next(new AppError("Invalid or expired token", 401));
+    next(new AppError("Unauthorized - Invalid token", 401));
   }
 };

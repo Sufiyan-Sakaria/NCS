@@ -13,7 +13,7 @@ export const getProductLedgersByBranch: RequestHandler = async (
   const { branchId } = req.params;
 
   try {
-    const ledgers = await prisma.productLedger.findMany({
+    const ledgers = await prisma.productBook.findMany({
       where: { branchId },
       include: {
         financialYear: true,
@@ -42,7 +42,7 @@ export const createProductLedger: RequestHandler = async (
   }
 
   try {
-    const exists = await prisma.productLedger.findFirst({
+    const exists = await prisma.productBook.findFirst({
       where: { branchId, financialYearId },
     });
 
@@ -51,7 +51,7 @@ export const createProductLedger: RequestHandler = async (
       return;
     }
 
-    const ledger = await prisma.productLedger.create({
+    const ledger = await prisma.productBook.create({
       data: {
         branchId,
         financialYearId,

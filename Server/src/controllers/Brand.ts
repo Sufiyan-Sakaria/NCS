@@ -44,7 +44,8 @@ export const createBrand = async (
   next: NextFunction
 ) => {
   try {
-    const { name, abb, createdBy } = req.body;
+    const { name, abb } = req.body;
+    const { id: userId } = req.user!;
     const { branchId } = req.params;
 
     if (!name || !abb || !branchId) {
@@ -69,7 +70,7 @@ export const createBrand = async (
         name,
         abb,
         branchId,
-        createdBy,
+        createdBy: userId,
       },
     });
 
@@ -95,7 +96,8 @@ export const updateBrand = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, abb, updatedBy } = req.body;
+    const { name, abb } = req.body;
+    const { id: userId } = req.user!;
 
     const brand = await prisma.brand.findUnique({ where: { id } });
 
@@ -108,7 +110,7 @@ export const updateBrand = async (
       data: {
         name,
         abb,
-        updatedBy,
+        updatedBy: userId,
       },
     });
 

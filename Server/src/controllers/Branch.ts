@@ -83,8 +83,8 @@ export const getBranchById = async (
         _count: {
           select: {
             Product: true,
-            ProductLedger: true,
-            Journal: true,
+            ProductBook: true,
+            JournalBook: true,
           },
         },
       },
@@ -306,8 +306,8 @@ export const deleteBranch = async (
             Product: true,
             Godown: true,
             Unit: true,
-            ProductLedger: true,
-            Journal: true,
+            ProductBook: true,
+            JournalBook: true,
           },
         },
       },

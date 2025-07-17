@@ -1,15 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {
-  BookOpen,
-  Bot,
-  Frame,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react";
 
 import { Navlinks } from "@/components/NavLinks";
 import { NavUser } from "@/components/NavUser";

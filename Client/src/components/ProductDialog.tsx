@@ -173,7 +173,7 @@ export function ProductDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Product" : "Add New Product"}</DialogTitle>
         </DialogHeader>
@@ -258,26 +258,28 @@ export function ProductDialog({
           </div>
 
           {!isEditMode && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
                 <Checkbox
                   checked={enableStock}
                   onCheckedChange={(v) => setEnableStock(!!v)}
                   id="stock-enable"
                 />
-                <Label htmlFor="stock-enable">Add Opening Stock</Label>
+                <Label htmlFor="stock-enable" className="cursor-pointer">
+                  Add Opening Stock
+                </Label>
               </div>
 
               {enableStock && (
-                <div className="space-y-4 border rounded p-3">
-                  <div className="grid grid-cols-4 gap-2 items-end">
-                    <div className="col-span-2">
-                      <Label>Godown</Label>
+                <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                    <div className="sm:col-span-2 space-y-1">
+                      <Label htmlFor="godown">Godown</Label>
                       <Select
                         value={stockEntry.godownId}
                         onValueChange={(val) => setStockEntry({ ...stockEntry, godownId: val })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="godown">
                           <SelectValue placeholder="Select godown" />
                         </SelectTrigger>
                         <SelectContent>
@@ -289,54 +291,62 @@ export function ProductDialog({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label>Qty</Label>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="qty">Qty</Label>
                       <Input
+                        id="qty"
                         type="number"
                         value={stockEntry.qty}
                         onChange={(e) =>
                           setStockEntry({ ...stockEntry, qty: parseFloat(e.target.value) || 0 })
                         }
+                        placeholder="0"
                       />
                     </div>
-                    <div>
-                      <Label>Thaan</Label>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="thaan">Thaan</Label>
                       <Input
+                        id="thaan"
                         type="number"
                         value={stockEntry.thaan}
                         onChange={(e) =>
                           setStockEntry({ ...stockEntry, thaan: parseFloat(e.target.value) || 0 })
                         }
+                        placeholder="0"
                       />
                     </div>
-                    <Button className="col-span-4" type="button" onClick={addStockEntry}>
-                      Add Stock Entry
-                    </Button>
                   </div>
 
-                  {initialStocks.map((entry, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between bg-muted px-3 py-2 rounded"
-                    >
-                      <div>
-                        <strong>
-                          {
-                            godowns?.find((g) => g.id === entry.godownId)?.name ||
-                            "Unknown Godown"
-                          }
-                        </strong>{" "}
-                        — Qty: {entry.qty}, Thaan: {entry.thaan}
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeStockEntry(idx)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                  <Button type="button" className="w-full" onClick={addStockEntry}>
+                    Add Stock Entry
+                  </Button>
+
+                  {initialStocks.length > 0 && (
+                    <div className="space-y-2">
+                      {initialStocks.map((entry, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between px-4 rounded-md bg-background border"
+                        >
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium">
+                              {godowns?.find((g) => g.id === entry.godownId)?.name || "Unknown Godown"}
+                            </span>{" "}
+                            – Qty: {entry.qty}, Thaan: {entry.thaan}
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeStockEntry(idx)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>

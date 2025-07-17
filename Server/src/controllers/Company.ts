@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "../../generated/prisma";
+import { InvoiceType, PrismaClient, VoucherType } from "../../generated/prisma";
 import { AppError } from "../utils/AppError";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
@@ -48,24 +49,139 @@ export const createCompany = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email } = req.body;
+    const {
+      name,
+      email,
+      financialYearStart,
+      financialYearEnd,
+      branchName,
+      branchAddress,
+      userName,
+      userEmail,
+      userPassword,
+    } = req.body;
 
-    if (!name || !email) {
-      return next(new AppError("Name and email is required", 400));
+    // Basic validation
+    if (
+      !name ||
+      !email ||
+      !financialYearStart ||
+      !financialYearEnd ||
+      !branchName ||
+      !userName ||
+      !userEmail ||
+      !userPassword
+    ) {
+      return next(new AppError("Missing required fields", 400));
     }
 
-    const company = await prisma.company.create({
-      data: { name, email },
+    const hashedPassword = await bcrypt.hash(userPassword, 12);
+
+    const start = new Date(financialYearStart);
+    const end = new Date(financialYearEnd);
+    const yearLabel = `${start.getFullYear()}-${String(end.getFullYear()).slice(
+      -2
+    )}`;
+
+    // Transactional creation
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create Company
+      const company = await tx.company.create({
+        data: { name, email },
+      });
+
+      // 2. Create Financial Year
+      const financialYear = await tx.financialYear.create({
+        data: {
+          startDate: start,
+          endDate: end,
+          companyId: company.id,
+        },
+      });
+
+      // 3. Create Branch
+      const branch = await tx.branch.create({
+        data: {
+          name: branchName,
+          address: branchAddress,
+          companyId: company.id,
+        },
+      });
+
+      // 4. Create Owner User
+      const user = await tx.user.create({
+        data: {
+          name: userName,
+          email: userEmail,
+          password: hashedPassword,
+          role: "owner",
+          companyId: company.id,
+        },
+      });
+
+      // 5. Create Journal Book
+      const journalBook = await tx.journalBook.create({
+        data: {
+          yearLabel,
+          financialYearId: financialYear.id,
+          branchId: branch.id,
+        },
+      });
+
+      // 6. Create Product Book
+      const productBook = await tx.productBook.create({
+        data: {
+          yearLabel,
+          financialYearId: financialYear.id,
+          branchId: branch.id,
+        },
+      });
+
+      // 7. Create Invoice Books by Type
+      await Promise.all(
+        Object.values(InvoiceType).map((type) =>
+          tx.invoiceBook.create({
+            data: {
+              type,
+              yearLabel,
+              financialYearId: financialYear.id,
+              branchId: branch.id,
+            },
+          })
+        )
+      );
+
+      // 8. Create Voucher Books by Type
+      await Promise.all(
+        Object.values(VoucherType).map((type) =>
+          tx.voucherBook.create({
+            data: {
+              type,
+              yearLabel,
+              financialYearId: financialYear.id,
+              branchId: branch.id,
+            },
+          })
+        )
+      );
+
+      return {
+        company,
+        financialYear,
+        branch,
+        user,
+        journalBook,
+        productBook,
+      };
     });
 
-    res.status(201).json({ success: true, data: company });
+    res.status(201).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
 };
 
 // UPDATE company
-// PATCH company
 export const updateCompany = async (
   req: Request,
   res: Response,
