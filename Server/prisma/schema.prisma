@@ -298,6 +298,7 @@ model AccountGroup {
   code      String
   balance   Decimal            @default(0)
   nature    AccountGroupNature
+  groupType AccountGroupType?
   parent    AccountGroup?      @relation("GroupHierarchy", fields: [parentId], references: [id])
   parentId  String?
   children  AccountGroup[]     @relation("GroupHierarchy")
@@ -314,6 +315,7 @@ model AccountGroup {
   @@index([parentId])
   @@index([branchId])
   @@index([isActive])
+  @@index([groupType])
 }
 
 enum AccountGroupNature {
@@ -322,6 +324,34 @@ enum AccountGroupNature {
   Capital
   Expenses
   Income
+  Drawings
+}
+
+enum AccountGroupType {
+  CapitalAccount
+  LoansLiabilities
+  CurrentLiabilities
+  FixedAssets
+  Investments
+  CurrentAssets
+  BranchDivisions
+  MiscExpensesAssets
+  SalesAccounts
+  PurchaseAccounts
+  DirectIncomes
+  IndirectIncomes
+  DirectExpenses
+  IndirectExpenses
+  SuspenseAccount
+  DutiesTaxes
+  Provisions
+  BankAccounts
+  CashInHand
+  Deposits
+  SecuredLoans
+  UnsecuredLoans
+  AccountsReceivable
+  AccountsPayable
 }
 
 model ProductBook {

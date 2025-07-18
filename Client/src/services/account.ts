@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { AccountGroup } from "@/types/AccountGroup";
+import { AccountGroup, AccountGroupType, Nature } from "@/types/AccountGroup";
 import { Ledger } from "@/types/Ledger";
 import { AxiosResponse } from "axios";
 
@@ -24,18 +24,18 @@ export interface FlatAccountGroup {
 
 export interface CreateAccountGroupPayload {
   name: string;
-  balance?: number;
-  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
-  parentId?: string;
+  nature: Nature;
+  type?: AccountGroupType | null;
+  parentId?: string | null;
   branchId: string;
 }
 
 export interface UpdateAccountGroupPayload {
   id: string;
   name: string;
-  balance?: number;
-  nature: "Assets" | "Liabilities" | "Capital" | "Income" | "Expenses";
-  parentId?: string;
+  type?: AccountGroupType | null;
+  nature: Nature;
+  parentId?: string | null;
 }
 
 export interface DeleteAccountGroupPayload {

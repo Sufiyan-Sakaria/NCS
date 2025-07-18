@@ -1,5 +1,9 @@
-import { PrismaClient } from "../../generated/prisma";
-import { Request, Response, NextFunction } from "express";
+import {
+  AccountGroupNature,
+  AccountGroupType,
+  PrismaClient,
+} from "../../generated/prisma";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { AppError } from "../utils/AppError";
 
 const prisma = new PrismaClient();
@@ -69,7 +73,7 @@ export const createAccountGroup = async (
   next: NextFunction
 ) => {
   try {
-    const { name, nature, parentId, branchId } = req.body;
+    const { name, nature, parentId, type, branchId } = req.body;
     const userId = req.user?.id;
 
     if (!name || !nature || !branchId) {
@@ -142,6 +146,7 @@ export const createAccountGroup = async (
         name,
         code: newCode,
         nature,
+        groupType: type,
         parentId,
         branchId,
         createdBy: userId,
@@ -166,7 +171,7 @@ export const updateAccountGroup = async (
 ) => {
   try {
     const { id } = req.params;
-    const { name, code, balance, nature, parentId } = req.body;
+    const { name, code, balance, nature, type, parentId } = req.body;
     const userId = req.user?.id;
 
     const accountGroup = await prisma.accountGroup.update({
@@ -176,6 +181,7 @@ export const updateAccountGroup = async (
         code,
         balance,
         nature,
+        groupType: type,
         parentId,
         updatedBy: userId,
       },
@@ -615,12 +621,12 @@ export const deleteLedger = async (
   }
 };
 
-// CREATE default account structure
+// CREATE default account structure with groupType and hierarchy
 export const createDefaultAccounts = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { branchId } = req.body;
     const userId = req.user?.id;
@@ -629,310 +635,85 @@ export const createDefaultAccounts = async (
       return next(new AppError("Branch ID is required", 400));
     }
 
+    const accountGroupStructure: Record<
+      AccountGroupNature,
+      AccountGroupType[]
+    > = {
+      Assets: ["FixedAssets", "CurrentAssets"],
+      Liabilities: ["CurrentLiabilities"],
+      Capital: ["CapitalAccount"],
+      Income: ["DirectIncomes", "IndirectIncomes"],
+      Expenses: ["DirectExpenses", "IndirectExpenses"],
+      Drawings: [],
+    };
+
     const result = await prisma.$transaction(async (tx) => {
-      // Create main account groups with hierarchical codes
-      const accountGroups = [
-        { name: "Assets", nature: "Assets" as const, code: "1" },
-        { name: "Liabilities", nature: "Liabilities" as const, code: "2" },
-        { name: "Capital", nature: "Capital" as const, code: "3" },
-        { name: "Income", nature: "Income" as const, code: "4" },
-        { name: "Expenses", nature: "Expenses" as const, code: "5" },
-      ];
+      let codeCounter = 1;
+      const mainGroups: any[] = [];
+      const subGroups: {
+        id: string;
+        name: string;
+        code: string;
+        nature: AccountGroupNature;
+        groupType: AccountGroupType;
+        parentId: string;
+        branchId: string;
+        createdBy?: string;
+        balance: number;
+      }[] = [];
 
-      const createdGroups: any[] = [];
-      for (const group of accountGroups) {
-        const createdGroup = await tx.accountGroup.create({
-          data: {
-            name: group.name,
-            code: group.code,
+      for (const [natureKey, groupTypes] of Object.entries(
+        accountGroupStructure
+      )) {
+        const nature = natureKey as AccountGroupNature;
+        const parentId = crypto.randomUUID();
+        const parentCode = `${codeCounter}`;
+
+        mainGroups.push({
+          id: parentId,
+          name: nature,
+          code: parentCode,
+          nature,
+          groupType: null,
+          parentId: null,
+          balance: 0,
+          branchId,
+          createdBy: userId,
+        });
+
+        groupTypes.forEach((groupType, index) => {
+          // Convert camel-case enum string to spaced name (e.g., FixedAssets -> Fixed Assets)
+          const readableName = groupType.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+          subGroups.push({
+            id: crypto.randomUUID(),
+            name: readableName,
+            code: `${parentCode}.${index + 1}`,
+            nature,
+            groupType,
+            parentId,
             balance: 0,
-            nature: group.nature,
             branchId,
             createdBy: userId,
-          },
+          });
         });
-        createdGroups.push(createdGroup);
+
+        codeCounter++;
       }
 
-      // Create sub-groups with hierarchical codes
-      const assetsGroup = createdGroups.find((g) => g.name === "Assets");
-      const liabilitiesGroup = createdGroups.find(
-        (g) => g.name === "Liabilities"
-      );
-      const expensesGroup = createdGroups.find((g) => g.name === "Expenses");
-      const incomeGroup = createdGroups.find((g) => g.name === "Income");
-
-      const subGroups = [
-        // Assets sub-groups
-        {
-          name: "Fixed Assets",
-          nature: "Assets" as const,
-          parentId: assetsGroup.id,
-          code: `${assetsGroup.code}.1`,
-        },
-        {
-          name: "Current Assets",
-          nature: "Assets" as const,
-          parentId: assetsGroup.id,
-          code: `${assetsGroup.code}.2`,
-        },
-        {
-          name: "Investments",
-          nature: "Assets" as const,
-          parentId: assetsGroup.id,
-          code: `${assetsGroup.code}.3`,
-        },
-
-        // Liabilities sub-groups
-        {
-          name: "Current Liabilities",
-          nature: "Liabilities" as const,
-          parentId: liabilitiesGroup.id,
-          code: `${liabilitiesGroup.code}.1`,
-        },
-        {
-          name: "Long Term Liabilities",
-          nature: "Liabilities" as const,
-          parentId: liabilitiesGroup.id,
-          code: `${liabilitiesGroup.code}.2`,
-        },
-
-        // Expenses sub-groups
-        {
-          name: "Direct Expenses",
-          nature: "Expenses" as const,
-          parentId: expensesGroup.id,
-          code: `${expensesGroup.code}.1`,
-        },
-        {
-          name: "Indirect Expenses",
-          nature: "Expenses" as const,
-          parentId: expensesGroup.id,
-          code: `${expensesGroup.code}.2`,
-        },
-
-        // Income sub-groups
-        {
-          name: "Direct Income",
-          nature: "Income" as const,
-          parentId: incomeGroup.id,
-          code: `${incomeGroup.code}.1`,
-        },
-        {
-          name: "Indirect Income",
-          nature: "Income" as const,
-          parentId: incomeGroup.id,
-          code: `${incomeGroup.code}.2`,
-        },
-      ];
-
-      const createdSubGroups: any[] = [];
-      for (const subGroup of subGroups) {
-        const createdSubGroup = await tx.accountGroup.create({
-          data: {
-            name: subGroup.name,
-            code: subGroup.code,
-            balance: 0,
-            nature: subGroup.nature,
-            parentId: subGroup.parentId,
-            branchId,
-            createdBy: userId,
-          },
-        });
-        createdSubGroups.push(createdSubGroup);
-      }
-
-      // Create default ledgers with hierarchical codes
-      const currentAssetsGroup = createdSubGroups.find(
-        (g) => g.name === "Current Assets"
-      );
-      const fixedAssetsGroup = createdSubGroups.find(
-        (g) => g.name === "Fixed Assets"
-      );
-      const currentLiabilitiesGroup = createdSubGroups.find(
-        (g) => g.name === "Current Liabilities"
-      );
-      const capitalGroup = createdGroups.find((g) => g.name === "Capital");
-      const directExpensesGroup = createdSubGroups.find(
-        (g) => g.name === "Direct Expenses"
-      );
-      const indirectExpensesGroup = createdSubGroups.find(
-        (g) => g.name === "Indirect Expenses"
-      );
-      const directIncomeGroup = createdSubGroups.find(
-        (g) => g.name === "Direct Income"
-      );
-
-      // Helper function to generate ledger codes
-      const getNextLedgerCode = (groupCode: string, index: number) => {
-        return `${groupCode}.${index}`;
-      };
-
-      const defaultLedgers = [
-        // Current Assets (1.2)
-        {
-          name: "Cash In Hand",
-          type: "Cash",
-          accountGroupId: currentAssetsGroup.id,
-          code: getNextLedgerCode(currentAssetsGroup.code, 1), // 1.2.1
-        },
-        {
-          name: "Bank Account",
-          type: "Bank",
-          accountGroupId: currentAssetsGroup.id,
-          code: getNextLedgerCode(currentAssetsGroup.code, 2), // 1.2.2
-        },
-        {
-          name: "Accounts Receivable",
-          type: "AccountsReceivable",
-          accountGroupId: currentAssetsGroup.id,
-          code: getNextLedgerCode(currentAssetsGroup.code, 3), // 1.2.3
-        },
-        {
-          name: "Inventory",
-          type: "Inventory",
-          accountGroupId: currentAssetsGroup.id,
-          code: getNextLedgerCode(currentAssetsGroup.code, 4), // 1.2.4
-        },
-        {
-          name: "Prepaid Expenses",
-          type: "PrepaidExpenses",
-          accountGroupId: currentAssetsGroup.id,
-          code: getNextLedgerCode(currentAssetsGroup.code, 5), // 1.2.5
-        },
-
-        // Fixed Assets (1.1)
-        {
-          name: "Plant & Machinery",
-          type: "FixedAssets",
-          accountGroupId: fixedAssetsGroup.id,
-          code: getNextLedgerCode(fixedAssetsGroup.code, 1), // 1.1.1
-        },
-        {
-          name: "Furniture & Fixtures",
-          type: "FixedAssets",
-          accountGroupId: fixedAssetsGroup.id,
-          code: getNextLedgerCode(fixedAssetsGroup.code, 2), // 1.1.2
-        },
-        {
-          name: "Computer & Equipment",
-          type: "FixedAssets",
-          accountGroupId: fixedAssetsGroup.id,
-          code: getNextLedgerCode(fixedAssetsGroup.code, 3), // 1.1.3
-        },
-
-        // Current Liabilities (2.1)
-        {
-          name: "Accounts Payable",
-          type: "AccountsPayable",
-          accountGroupId: currentLiabilitiesGroup.id,
-          code: getNextLedgerCode(currentLiabilitiesGroup.code, 1), // 2.1.1
-        },
-        {
-          name: "GST Payable",
-          type: "GSTPayable",
-          accountGroupId: currentLiabilitiesGroup.id,
-          code: getNextLedgerCode(currentLiabilitiesGroup.code, 2), // 2.1.2
-        },
-        {
-          name: "TDS Payable",
-          type: "TDSPayable",
-          accountGroupId: currentLiabilitiesGroup.id,
-          code: getNextLedgerCode(currentLiabilitiesGroup.code, 3), // 2.1.3
-        },
-
-        // Capital (3)
-        {
-          name: "Owner's Capital",
-          type: "OwnerCapital",
-          accountGroupId: capitalGroup.id,
-          code: getNextLedgerCode(capitalGroup.code, 1), // 3.1
-        },
-        {
-          name: "Retained Earnings",
-          type: "RetainedEarnings",
-          accountGroupId: capitalGroup.id,
-          code: getNextLedgerCode(capitalGroup.code, 2), // 3.2
-        },
-
-        // Direct Income (4.1)
-        {
-          name: "Sales",
-          type: "Sales",
-          accountGroupId: directIncomeGroup.id,
-          code: getNextLedgerCode(directIncomeGroup.code, 1), // 4.1.1
-        },
-
-        // Direct Expenses (5.1)
-        {
-          name: "Purchase",
-          type: "Purchase",
-          accountGroupId: directExpensesGroup.id,
-          code: getNextLedgerCode(directExpensesGroup.code, 1), // 5.1.1
-        },
-
-        // Indirect Expenses (5.2)
-        {
-          name: "Rent",
-          type: "Rent",
-          accountGroupId: indirectExpensesGroup.id,
-          code: getNextLedgerCode(indirectExpensesGroup.code, 1), // 5.2.1
-        },
-        {
-          name: "Electricity",
-          type: "Electricity",
-          accountGroupId: indirectExpensesGroup.id,
-          code: getNextLedgerCode(indirectExpensesGroup.code, 2), // 5.2.2
-        },
-        {
-          name: "Telephone",
-          type: "Telephone",
-          accountGroupId: indirectExpensesGroup.id,
-          code: getNextLedgerCode(indirectExpensesGroup.code, 3), // 5.2.3
-        },
-        {
-          name: "Transportation",
-          type: "Transportation",
-          accountGroupId: indirectExpensesGroup.id,
-          code: getNextLedgerCode(indirectExpensesGroup.code, 4), // 5.2.4
-        },
-        {
-          name: "Wages",
-          type: "Wages",
-          accountGroupId: indirectExpensesGroup.id,
-          code: getNextLedgerCode(indirectExpensesGroup.code, 5), // 5.2.5
-        },
-      ];
-
-      const createdLedgers: any[] = [];
-      for (const ledger of defaultLedgers) {
-        const createdLedger = await tx.ledger.create({
-          data: {
-            name: ledger.name,
-            code: ledger.code,
-            type: ledger.type as any,
-            phone1: "",
-            phone2: "",
-            balance: 0,
-            openingBalance: 0,
-            accountGroupId: ledger.accountGroupId,
-            branchId,
-            createdBy: userId,
-          },
-        });
-        createdLedgers.push(createdLedger);
-      }
+      await tx.accountGroup.createMany({
+        data: [...mainGroups, ...subGroups],
+      });
 
       return {
-        accountGroups: createdGroups,
-        subGroups: createdSubGroups,
-        ledgers: createdLedgers,
+        mainGroups: mainGroups.length,
+        subGroups: subGroups.length,
       };
     });
 
     res.status(201).json({
       success: true,
-      message: "Default account structure created successfully",
+      message: "Default simplified account structure created successfully",
       data: result,
     });
   } catch (error) {
@@ -1135,6 +916,7 @@ export const getHierarchicalAccountsByBranch = async (
         name: group.name,
         code: group.code,
         nature: group.nature,
+        type: group.groupType,
         parentId: group.parentId,
         balance: group.balance,
         ledgers: group.Ledger,

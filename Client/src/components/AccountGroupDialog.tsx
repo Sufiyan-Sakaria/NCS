@@ -39,7 +39,7 @@ import {
   useUpdateAccountGroup,
   useAccountGroups,
 } from "@/hooks/UseAccount";
-import { EditableAccountGroup } from "@/types/AccountGroup";
+import { accountGroupTypeOptions, EditableAccountGroup, natureOptions } from "@/types/AccountGroup";
 import {
   accountGroupFormSchema,
   AccountGroupFormValues,
@@ -65,6 +65,7 @@ export function AccountGroupDialog({
   onSuccess,
 }: AccountGroupDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openPopover, setOpenPopover] = useState(false)
   const [parentOpen, setParentOpen] = useState(false);
 
   const form = useForm<AccountGroupFormValues>({
@@ -73,6 +74,7 @@ export function AccountGroupDialog({
       name: initialData?.name ?? "",
       nature: initialData?.nature ?? "Assets",
       parentId: initialData?.parentId ?? undefined,
+      type: initialData?.type ?? undefined
     },
   });
 
@@ -82,6 +84,7 @@ export function AccountGroupDialog({
         name: initialData.name,
         nature: initialData.nature,
         parentId: initialData.parentId ?? undefined,
+        type: initialData?.type ?? undefined
       });
     }
   }, [open, mode, initialData, form]);
@@ -108,6 +111,7 @@ export function AccountGroupDialog({
       name: values.name,
       nature: values.nature,
       parentId: values.parentId === "none" ? undefined : values.parentId,
+      type: values.type || undefined
     };
 
     if (mode === "edit" && initialData?.id) {
@@ -169,38 +173,97 @@ export function AccountGroupDialog({
               )}
             />
 
-            {/* Nature Field */}
-            <FormField
-              control={form.control}
-              name="nature"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nature</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select nature" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Assets">Assets</SelectItem>
-                      <SelectItem value="Liabilities">Liabilities</SelectItem>
-                      <SelectItem value="Capital">Capital</SelectItem>
-                      <SelectItem value="Income">Income</SelectItem>
-                      <SelectItem value="Expenses">Expenses</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Nature Field */}
+              <FormField
+                control={form.control}
+                name="nature"
+                render={({ field }) => (
+                  <FormItem className="w-full">
+                    <FormLabel>Nature</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select nature" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {natureOptions.map((nature) => (
+                          <SelectItem key={nature} value={nature}>
+                            {nature}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* Group Type Field */}
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => {
+                  const selectedType = field.value;
+                  return (
+                    <FormItem className="w-full">
+                      <FormLabel>Group Type</FormLabel>
+                      <Popover open={openPopover} onOpenChange={setOpenPopover}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" role="combobox" className="w-full justify-between">
+                            {selectedType
+                              ? accountGroupTypeOptions.find((t) => t === selectedType)
+                                ?.replace(/([a-z])([A-Z])/g, "$1 $2")
+                                .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
+                              : "Select type (optional)"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search type..." />
+                            <CommandList className="max-h-48 overflow-auto">
+                              <CommandEmpty>No type found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="none"
+                                  onSelect={() => field.onChange(undefined)}
+                                >
+                                  None
+                                </CommandItem>
+                                {accountGroupTypeOptions.map((type) => (
+                                  <CommandItem
+                                    key={type}
+                                    value={type}
+                                    onSelect={() => { field.onChange(type); setOpenPopover(false) }}
+                                  >
+                                    {type
+                                      .replace(/([a-z])([A-Z])/g, "$1 $2")
+                                      .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+            </div>
 
             {/* Parent Group Field */}
             <FormField
               control={form.control}
               name="parentId"
               render={({ field }) => {
+                const selectedNature = form.watch("nature");
+                const filteredGroups = accountGroups
+                  ?.filter((g) => g.nature === selectedNature && g.id !== initialData?.id);
+
                 const selected = accountGroups?.find((g) => g.id === field.value);
+
                 return (
                   <FormItem>
                     <FormLabel>Parent Group</FormLabel>
@@ -231,27 +294,25 @@ export function AccountGroupDialog({
                               >
                                 None
                               </CommandItem>
-                              {accountGroups
-                                ?.filter((g) => g.id !== initialData?.id)
-                                .map((group) => (
-                                  <CommandItem
-                                    key={group.id}
-                                    value={group.name}
-                                    onSelect={() => {
-                                      field.onChange(group.id);
-                                      setParentOpen(false);
-                                    }}
-                                  >
-                                    <div>
-                                      <div className="text-sm font-medium">
-                                        {group.name} ({group.code})
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {group.nature}
-                                      </div>
+                              {filteredGroups?.map((group) => (
+                                <CommandItem
+                                  key={group.id}
+                                  value={group.name}
+                                  onSelect={() => {
+                                    field.onChange(group.id);
+                                    setParentOpen(false);
+                                  }}
+                                >
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      {group.name} ({group.code})
                                     </div>
-                                  </CommandItem>
-                                ))}
+                                    <div className="text-xs text-muted-foreground">
+                                      {group.nature}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
                             </CommandGroup>
                           </CommandList>
                         </Command>
@@ -262,6 +323,7 @@ export function AccountGroupDialog({
                 );
               }}
             />
+
 
             {/* Submit Buttons */}
             <div className="flex justify-end gap-2 pt-4">

@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { Unit } from "@/types/Unit";
 import { AxiosResponse } from "axios";
 
 // ============ Types ============
@@ -16,7 +17,8 @@ export interface ProductEntry {
   product: {
     id: string;
     name: string;
-    code: string;
+    hsn: string;
+    unit: Unit;
   };
   godown: {
     id: string;
@@ -34,7 +36,8 @@ export interface ProductEntriesResponse {
   summary: {
     totalIn: number;
     totalOut: number;
-    currentStock: number;
+    currentQty: number;
+    currentThaan: number;
   };
 }
 

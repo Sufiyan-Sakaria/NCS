@@ -28,7 +28,6 @@ import {
   TrendingDown,
   Package,
 } from "lucide-react";
-import { useProducts } from "@/hooks/UseProduct";
 import { useProductEntries } from "@/hooks/UseProductEntries";
 import { format, parseISO } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -37,10 +36,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ProductSelectWithDialog } from "@/components/ProductSelectWithDIalog";
 
 const ProductEntriesPage: NextPage = () => {
   const branchId = useActiveBranchId();
-  const { data: products, isLoading: productsLoading } = useProducts(branchId!);
 
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
@@ -70,21 +69,6 @@ const ProductEntriesPage: NextPage = () => {
   const summary = entriesData?.summary;
   const totalEntries = entriesData?.totalEntries || 0;
 
-  if (productsLoading) {
-    return (
-      <main className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <Skeleton className="h-64 w-full" />
-      </main>
-    );
-  }
-
   return (
     <main className="p-4 space-y-3">
       <div className="flex justify-between items-center">
@@ -102,21 +86,11 @@ const ProductEntriesPage: NextPage = () => {
             {/* Product */}
             <div className="space-y-1 col-span-2">
               <label className="text-sm font-medium">Product</label>
-              <Select
+              <ProductSelectWithDialog
                 value={selectedProductId}
-                onValueChange={setSelectedProductId}
-              >
-                <SelectTrigger className="w-full h-10">
-                  <SelectValue placeholder="Select Product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products?.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(id) => setSelectedProductId(id)}
+                branchId={branchId!}
+              />
             </div>
 
 
@@ -205,8 +179,8 @@ const ProductEntriesPage: NextPage = () => {
 
       {/* Summary Cards */}
       {summary && selectedProductId && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="py-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -217,7 +191,7 @@ const ProductEntriesPage: NextPage = () => {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="p-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -228,12 +202,26 @@ const ProductEntriesPage: NextPage = () => {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="p-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
-                  <p className="text-2xl font-bold">{summary.currentStock}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Current Qty</p>
+                  <p className="text-2xl font-bold">
+                    {summary.currentQty} {" "}
+                    {entries[0]?.product?.unit.abb ?? ""}
+                  </p>
+                </div>
+                <Package className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="p-0">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Current Thaan</p>
+                  <p className="text-2xl font-bold">{summary.currentThaan}</p>
                 </div>
                 <Package className="h-8 w-8 text-blue-600" />
               </div>
@@ -285,26 +273,27 @@ const ProductEntriesPage: NextPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="border-r">Date</TableHead>
-                    <TableHead className="border-r">Type</TableHead>
-                    <TableHead className="border-r">Godown</TableHead>
-                    <TableHead className="border-r text-right">Qty</TableHead>
-                    <TableHead className="border-r text-right">Thaan</TableHead>
-                    <TableHead className="border-r text-right">Running Qty</TableHead>
-                    <TableHead className="border-r text-right">Running Thaan</TableHead>
-                    <TableHead>Created By</TableHead>
+                    <TableHead className="border-r text-center">Date</TableHead>
+                    <TableHead className="border-r text-center">Type</TableHead>
+                    <TableHead className="border-r text-center">Godown</TableHead>
+                    <TableHead className="border-r text-center">Qty</TableHead>
+                    <TableHead className="border-r text-center">Thaan</TableHead>
+                    <TableHead className="border-r text-center">Unit</TableHead>
+                    <TableHead className="border-r text-center">Running Qty</TableHead>
+                    <TableHead className="border-r text-center">Running Thaan</TableHead>
+                    <TableHead className="text-center">Created By</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="border-r">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                           {format(new Date(entry.date), "MMM dd, yyyy")}
                         </div>
                       </TableCell>
-                      <TableCell className="border-r">
+                      <TableCell className="border-r text-center">
                         <Badge
                           variant={entry.type === "IN" ? "default" : "destructive"}
                           className={
@@ -316,22 +305,25 @@ const ProductEntriesPage: NextPage = () => {
                           {entry.type === "IN" ? "Stock In" : "Stock Out"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="border-r font-medium">
+                      <TableCell className="border-r font-medium text-center">
                         {entry.godown?.name || "N/A"}
                       </TableCell>
-                      <TableCell className="border-r text-right font-mono">
+                      <TableCell className="border-r text-center font-mono">
                         {entry.qty.toLocaleString()}
                       </TableCell>
-                      <TableCell className="border-r text-right font-mono">
+                      <TableCell className="border-r text-center font-mono">
                         {entry.thaan.toLocaleString()}
                       </TableCell>
-                      <TableCell className="border-r text-right font-mono font-bold">
+                      <TableCell className="border-r font-medium text-center">
+                        {entry.product.unit.abb || "N/A"}
+                      </TableCell>
+                      <TableCell className="border-r text-center font-mono font-bold">
                         {entry.runningQty.toLocaleString()}
                       </TableCell>
-                      <TableCell className="border-r text-right font-mono font-bold">
+                      <TableCell className="border-r text-center font-mono font-bold">
                         {entry.runningThaan.toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         {entry.createdByUser?.name || "N/A"}
                       </TableCell>
                     </TableRow>

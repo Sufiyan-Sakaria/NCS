@@ -247,11 +247,6 @@ const AccountTreePage: NextPage = () => {
             <div className="flex items-center space-x-4">
               <span className="font-bold">{formatCurrency(group.balance)}</span>
               <div className="flex items-center space-x-1">
-                <LedgerDialog branchId={branchId} initialData={{
-                  accountGroupId: group.id
-                }} trigger={<Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7">
-                  <Plus className="w-4 h-4" />
-                </Button>} onSuccess={refetch} />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -262,6 +257,7 @@ const AccountTreePage: NextPage = () => {
                       name: group.name,
                       code: group.code,
                       nature: group.nature,
+                      type: group.type,
                       parentId: group.parentId,
                       branchId: branchId,
                     });
@@ -283,12 +279,12 @@ const AccountTreePage: NextPage = () => {
             {(() => {
               const childrenWithType = (group.children || []).map(child => ({
                 ...child,
-                type: 'group' as const,
+                kind: 'group' as const,
                 sortCode: child.code
               }));
               const ledgersWithType = (group.ledgers || []).map(ledger => ({
                 ...ledger,
-                type: 'ledger' as const,
+                kind: 'ledger' as const,
                 sortCode: ledger.code
               }));
               const allItems = [...childrenWithType, ...ledgersWithType].sort((a, b) => {
@@ -303,7 +299,7 @@ const AccountTreePage: NextPage = () => {
               });
 
               return allItems.map(item => {
-                if (item.type === 'group') {
+                if (item.kind === 'group') {
                   return renderAccountGroup(item, level + 1, group.name);
                 } else {
                   return renderLedger(item, level, group.name);
@@ -392,11 +388,19 @@ const AccountTreePage: NextPage = () => {
                 branchId={branchId}
                 trigger={
                   <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Account Group
+                    <Plus className="w-4 h-4" />
+                    Add Group
                   </Button>
                 }
               />
+              <LedgerDialog
+                branchId={branchId}
+                trigger={
+                  <Button>
+                    <Plus className="w-4 h-4" />
+                    Add Ledger
+                  </Button>
+                } />
               {/* Only show Create Default Structure button if no accounts exist */}
               {!hasAccounts && (
                 <Button

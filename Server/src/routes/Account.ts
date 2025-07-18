@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
 import {
   getAccountGroupsByBranch,
   getAccountGroupById,
@@ -18,6 +18,9 @@ import {
 
 const router = Router();
 
+// Default Account Structure
+router.post("/structure/default", createDefaultAccounts);
+
 // Account Group Routes
 router.get("/groups/branch/:branchId", getAccountGroupsByBranch);
 router.get("/groups/:id", getAccountGroupById);
@@ -31,9 +34,6 @@ router.get("/ledgers/:id", getLedgerById);
 router.post("/ledgers", createLedger);
 router.put("/ledgers/:id", updateLedger);
 router.delete("/ledgers/:id", deleteLedger);
-
-// Default Account Structure
-router.post("/structure/default", createDefaultAccounts);
 
 // Trial Balance & Ledger Book
 router.get("/trial-balance/:branchId/:financialYearId", getTrialBalance);

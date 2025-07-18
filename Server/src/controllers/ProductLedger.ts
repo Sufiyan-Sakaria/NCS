@@ -1,11 +1,11 @@
-import { Request, Response, NextFunction, RequestHandler } from "express";
+import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "../../generated/prisma";
 import { AppError } from "../utils/AppError";
 
 const prisma = new PrismaClient();
 
 // GET all product ledgers by branch
-export const getProductLedgersByBranch: RequestHandler = async (
+export const getProductLedgersByBranch = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -28,7 +28,7 @@ export const getProductLedgersByBranch: RequestHandler = async (
 };
 
 // CREATE product ledger for financial year
-export const createProductLedger: RequestHandler = async (
+export const createProductLedger = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -66,7 +66,7 @@ export const createProductLedger: RequestHandler = async (
 };
 
 // GET ledger entries with optional godown/date filters and group by godown
-export const getFilteredLedgerEntries: RequestHandler = async (
+export const getFilteredLedgerEntries = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -118,7 +118,7 @@ export const getFilteredLedgerEntries: RequestHandler = async (
 };
 
 // GET current stock summary for a product (total qty/thaan from ledger)
-export const getProductStockSummary: RequestHandler = async (
+export const getProductStockSummary = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -147,7 +147,7 @@ export const getProductStockSummary: RequestHandler = async (
 };
 
 // GET product entries for a specific product with optional timestamp filters
-export const getProductEntries: RequestHandler = async (
+export const getProductEntries = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -189,6 +189,7 @@ export const getProductEntries: RequestHandler = async (
             id: true,
             name: true,
             hsn: true,
+            unit: true,
           },
         },
         godown: {
@@ -240,7 +241,8 @@ export const getProductEntries: RequestHandler = async (
           totalOut: entries
             .filter((e) => e.type === "OUT")
             .reduce((sum, e) => sum + e.qty, 0),
-          currentStock: runningQty,
+          currentQty: runningQty,
+          currentThaan: runningThaan,
         },
       },
     });

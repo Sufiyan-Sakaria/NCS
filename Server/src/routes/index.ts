@@ -49,6 +49,6 @@ router.use("/product", protect, Product);
 router.use("/product-ledger", protect, ProductLedger);
 
 // Account & Ledger Routes
-router.use("/account", Account);
+router.use("/account", protect, Account);
 
 export default router;
