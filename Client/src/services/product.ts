@@ -41,6 +41,47 @@ export const getProductsByBranch = async (branchId: string): Promise<Product[]> 
   return response.data.data;
 };
 
+// GET /product/:branchId/stocks
+export interface ProductStockSummary {
+  totalQty: number;
+  totalThaan: number;
+  currentQty: number;
+  currentThaan: number;
+}
+
+export interface ProductStockEntry {
+  _key: string;
+  productId: string;
+  product: any;
+  godownId: string;
+  godown: any;
+  qty: number;
+  thaan: number;
+}
+
+export interface ProductStockResponse {
+  entries: ProductStockEntry[];
+  totalEntries: number;
+  summary: ProductStockSummary;
+}
+
+export const getProductStock = async (
+  branchId: string,
+  productId?: string,
+  godownId?: string,
+): Promise<ProductStockResponse> => {
+  const params: Record<string, string> = {};
+  if (productId) params.productId = productId;
+  if (godownId) params.godownId = godownId;
+  const response: AxiosResponse<{ data: ProductStockResponse }> = await api.get(
+    `/product/${branchId}/stocks`,
+    {
+      params,
+    },
+  );
+  return response.data.data;
+};
+
 // POST /product/:branchId
 export const createProduct = async (payload: CreateProductPayload): Promise<Product> => {
   const response: AxiosResponse<{ data: Product }> = await api.post(

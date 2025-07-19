@@ -235,10 +235,13 @@ model Product {
   ProductLedgerEntry ProductLedgerEntry[]
   InvoiceItem        InvoiceItem[]
 
+  // Add this line for GodownTransfer relation:
+  godownTransfers    GodownTransfer[]
+
   createdByUser User? @relation("ProductCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id])
 
-  @@unique([name, branchId])
+  @@unique([name, brandId, branchId])
   @@index([isActive])
 }
 
@@ -252,9 +255,13 @@ model Godown {
   updatedBy          String?
   isActive           Boolean              @default(true)
   createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  updatedAt          DateTime             @default(now())
   ProductStock       ProductStock[]
   ProductLedgerEntry ProductLedgerEntry[]
+
+  // Add these two lines for GodownTransfer relations:
+  godownTransfersFrom GodownTransfer[] @relation("GodownTransferFrom")
+  godownTransfersTo   GodownTransfer[] @relation("GodownTransferTo")
 
   createdByUser User? @relation("GodownCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("GodownUpdatedBy", fields: [updatedBy], references: [id])
@@ -362,6 +369,7 @@ model ProductBook {
   branch          Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
   branchId        String
   entries         ProductLedgerEntry[]
+  godownTransfers GodownTransfer[]
   createdBy       String?
   updatedBy       String?
   isActive        Boolean              @default(true)
@@ -513,7 +521,7 @@ model JournalEntry {
   createdBy     String?
   updatedBy     String?
   createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  updatedAt     DateTime    @default(now())
 
   createdByUser User? @relation("JournalEntryCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("JournalEntryUpdatedBy", fields: [updatedBy], references: [id])
@@ -541,7 +549,7 @@ model InvoiceBook {
   updatedBy       String?
   isActive        Boolean       @default(true)
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  updatedAt       DateTime      @default(now())
 
   createdByUser User? @relation("InvoiceBookCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("InvoiceBookUpdatedBy", fields: [updatedBy], references: [id])
@@ -578,7 +586,7 @@ model Invoice {
   updatedBy     String?
   isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  updatedAt     DateTime      @default(now())
 
   createdByUser      User?                @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
   updatedByUser      User?                @relation("InvoiceUpdatedBy", fields: [updatedBy], references: [id])
@@ -630,7 +638,7 @@ model VoucherBook {
   updatedBy       String?
   isActive        Boolean       @default(true)
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  updatedAt       DateTime      @default(now())
 
   createdByUser User? @relation("VoucherBookCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("VoucherBookUpdatedBy", fields: [updatedBy], references: [id])
@@ -665,7 +673,7 @@ model Voucher {
   updatedBy     String?
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  updatedAt     DateTime       @default(now())
 
   createdByUser User? @relation("VoucherCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("VoucherUpdatedBy", fields: [updatedBy], references: [id])
@@ -694,7 +702,7 @@ model VoucherEntry {
   updatedBy String?
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime  @default(now())
 
   createdByUser User? @relation("VoucherEntryCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("VoucherEntryUpdatedBy", fields: [updatedBy], references: [id])
@@ -702,4 +710,27 @@ model VoucherEntry {
   @@index([voucherId])
   @@index([ledgerId])
   @@index([isActive])
+}
+
+model GodownTransfer {
+  id             String    @id @default(uuid())
+  fromGodownId   String
+  toGodownId     String
+  productId      String
+  quantity       Float
+  thaan          Int      @default(0)
+  narration      String?
+  transferDate   DateTime  @default(now())
+  createdBy      String?
+  productBookId  String?
+
+  fromGodown     Godown   @relation("GodownTransferFrom", fields: [fromGodownId], references: [id])
+  toGodown       Godown   @relation("GodownTransferTo", fields: [toGodownId], references: [id])
+  product        Product  @relation(fields: [productId], references: [id])
+  productBook    ProductBook? @relation(fields: [productBookId], references: [id])
+
+  @@index([fromGodownId])
+  @@index([toGodownId])
+  @@index([productId])
+  @@index([productBookId])
 }

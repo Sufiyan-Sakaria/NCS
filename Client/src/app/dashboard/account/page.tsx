@@ -46,7 +46,6 @@ const AccountTreePage: NextPage = () => {
   const [selectedGroup, setSelectedGroup] = useState<EditableAccountGroup | null>(null);
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
 
-
   // Get branchId from Redux store
   const activeBranchId = useActiveBranchId();
   const branchId = activeBranchId || "";
@@ -96,15 +95,15 @@ const AccountTreePage: NextPage = () => {
         group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         group.code.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchedLedgers = group.ledgers?.filter(
-        (ledger) =>
-          ledger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          ledger.code.toLowerCase().includes(searchTerm.toLowerCase())
-      ) || [];
+      const matchedLedgers =
+        group.ledgers?.filter(
+          (ledger) =>
+            ledger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            ledger.code.toLowerCase().includes(searchTerm.toLowerCase()),
+        ) || [];
 
-      const matchedChildren = group.children
-        ?.map(filterTree)
-        .filter((g): g is AccountGroup => g !== null) || [];
+      const matchedChildren =
+        group.children?.map(filterTree).filter((g): g is AccountGroup => g !== null) || [];
 
       // If current group or any of its children or ledgers matched
       if (matchesGroup || matchedLedgers.length > 0 || matchedChildren.length > 0) {
@@ -119,14 +118,11 @@ const AccountTreePage: NextPage = () => {
       return null;
     };
 
-    const result = accountData
-      .map(filterTree)
-      .filter((g): g is AccountGroup => g !== null);
+    const result = accountData.map(filterTree).filter((g): g is AccountGroup => g !== null);
 
     setExpandedNodes(expanded);
     return result;
   }, [accountData, searchTerm]);
-
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -171,7 +167,7 @@ const AccountTreePage: NextPage = () => {
   const renderLedger = (
     ledger: Ledger,
     level: number = 0,
-    parentName: string = ""
+    parentName: string = "",
   ): JSX.Element => (
     <div key={ledger.id} style={{ marginLeft: `${(level + 1) * 15}px` }}>
       <Card className="p-0 hover:shadow-md transition-shadow duration-200">
@@ -204,12 +200,11 @@ const AccountTreePage: NextPage = () => {
     </div>
   );
 
-
   // Updated renderAccountGroup function with sorting logic
   const renderAccountGroup = (
     group: AccountGroup,
     level: number = 0,
-    parentName: string = ""
+    parentName: string = "",
   ): JSX.Element => {
     const isExpanded = expandedNodes.has(group.id);
     const hasChildren = group.children && group.children.length > 0;
@@ -217,7 +212,11 @@ const AccountTreePage: NextPage = () => {
 
     return (
       <div key={group.id} className="mb-2" style={{ marginLeft: `${level * 15}px` }}>
-        <Card className={`hover:shadow-md transition-shadow duration-200 py-1 ${level === 0 ? "shadow-sm" : ""}`}>
+        <Card
+          className={`hover:shadow-md transition-shadow duration-200 py-1 ${
+            level === 0 ? "shadow-sm" : ""
+          }`}
+        >
           <CardContent className="p-2 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {(hasChildren || hasLedgers) && (
@@ -227,7 +226,11 @@ const AccountTreePage: NextPage = () => {
                   onClick={() => toggleNode(group.id)}
                   className="p-1 h-7 w-7 cursor-pointer"
                 >
-                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
                 </Button>
               )}
 
@@ -266,7 +269,11 @@ const AccountTreePage: NextPage = () => {
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="cursor-pointer w-7 h-7 text-red-500 hover:text-red-500">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer w-7 h-7 text-red-500 hover:text-red-500"
+                >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -277,19 +284,19 @@ const AccountTreePage: NextPage = () => {
         {isExpanded && (
           <div className="mt-2 space-y-2">
             {(() => {
-              const childrenWithType = (group.children || []).map(child => ({
+              const childrenWithType = (group.children || []).map((child) => ({
                 ...child,
-                kind: 'group' as const,
-                sortCode: child.code
+                kind: "group" as const,
+                sortCode: child.code,
               }));
-              const ledgersWithType = (group.ledgers || []).map(ledger => ({
+              const ledgersWithType = (group.ledgers || []).map((ledger) => ({
                 ...ledger,
-                kind: 'ledger' as const,
-                sortCode: ledger.code
+                kind: "ledger" as const,
+                sortCode: ledger.code,
               }));
               const allItems = [...childrenWithType, ...ledgersWithType].sort((a, b) => {
-                const aCode = a.sortCode.split('.').map(Number);
-                const bCode = b.sortCode.split('.').map(Number);
+                const aCode = a.sortCode.split(".").map(Number);
+                const bCode = b.sortCode.split(".").map(Number);
                 for (let i = 0; i < Math.max(aCode.length, bCode.length); i++) {
                   const aNum = aCode[i] || 0;
                   const bNum = bCode[i] || 0;
@@ -298,8 +305,8 @@ const AccountTreePage: NextPage = () => {
                 return 0;
               });
 
-              return allItems.map(item => {
-                if (item.kind === 'group') {
+              return allItems.map((item) => {
+                if (item.kind === "group") {
                   return renderAccountGroup(item, level + 1, group.name);
                 } else {
                   return renderLedger(item, level, group.name);
@@ -311,7 +318,6 @@ const AccountTreePage: NextPage = () => {
       </div>
     );
   };
-
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
@@ -400,7 +406,8 @@ const AccountTreePage: NextPage = () => {
                     <Plus className="w-4 h-4" />
                     Add Ledger
                   </Button>
-                } />
+                }
+              />
               {/* Only show Create Default Structure button if no accounts exist */}
               {!hasAccounts && (
                 <Button
@@ -439,16 +446,14 @@ const AccountTreePage: NextPage = () => {
                       variant={"ghost"}
                       onClick={() => {
                         setSearchTerm("");
-                        setExpandedNodes(new Set())
-                      }
-                      }
+                        setExpandedNodes(new Set());
+                      }}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer rounded-full"
                     >
                       <XCircle className="w-6 h-6" />
                     </Button>
                   )}
                 </div>
-
               </div>
               <div className="flex items-center space-x-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
@@ -550,7 +555,7 @@ const AccountTreePage: NextPage = () => {
           setSelectedGroup(null);
         }}
       />
-    </div >
+    </div>
   );
 };
 

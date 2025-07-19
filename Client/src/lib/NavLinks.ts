@@ -53,6 +53,11 @@ export const navLinks: Navlink[] = [
     url: "/dashboard/product-ledger",
   },
   {
+    label: "Product Stock",
+    icon: Package,
+    url: "/dashboard/product-stock",
+  },
+  {
     label: "Accounts",
     icon: UsersRound,
     url: "/dashboard/account",

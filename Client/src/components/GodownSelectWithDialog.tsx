@@ -13,21 +13,21 @@ import {
 } from "@/components/ui/command";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProductDialog } from "./ProductDialog";
-import { useProducts } from "@/hooks/UseProduct";
+import { useGodowns } from "@/hooks/UseGodown";
+import { GodownDialog } from "./GodownDialog";
 
 interface Props {
   value: string;
-  onChange: (productId: string) => void;
+  onChange: (godownId: string) => void;
   branchId: string;
 }
 
-export const ProductSelectWithDialog = ({ value, onChange, branchId }: Props) => {
+export const GodownSelectWithDialog = ({ value, onChange, branchId }: Props) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: products, refetch } = useProducts(branchId);
+  const { data: godowns, refetch } = useGodowns(branchId);
 
-  const selectedProduct = products?.find((p) => p.id === value);
+  const selectedGodown = godowns?.find((p) => p.id === value);
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -42,49 +42,50 @@ export const ProductSelectWithDialog = ({ value, onChange, branchId }: Props) =>
           <Button
             variant="outline"
             role="combobox"
-            className={cn("w-full h-8 justify-between", !value && "text-muted-foreground")}
-          >
-            {selectedProduct ? (
-              <>
-                {selectedProduct.name}
-                {selectedProduct.brand?.name && <> &middot; {selectedProduct.brand.name}</>}
-                {selectedProduct.category?.name && <> &middot; {selectedProduct.category.name}</>}
-              </>
-            ) : (
-              "Select Product"
+            className={cn(
+              "w-full h-8 justify-between",
+              value === "" ? "text-muted-foreground" : "",
             )}
+          >
+            {value === "" ? "All Godowns" : selectedGodown ? selectedGodown.name : "Select Godown"}
             <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">
           <Command>
-            <CommandInput placeholder="Search product..." />
+            <CommandInput placeholder="Search godown..." />
             <CommandList>
-              <CommandEmpty>No product found.</CommandEmpty>
-              <CommandGroup heading="Products">
-                {products?.map((product) => (
+              <CommandEmpty>No godown found.</CommandEmpty>
+              <CommandGroup heading="Godowns">
+                <CommandItem
+                  key="all-godowns"
+                  value="All Godowns"
+                  onSelect={() => {
+                    onChange("");
+                    setPopoverOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn("mr-2 h-4 w-4", value === "" ? "opacity-100" : "opacity-0")}
+                  />
+                  All Godowns
+                </CommandItem>
+                {godowns?.map((godown) => (
                   <CommandItem
-                    key={product.id}
-                    value={`${product.name} ${product.brand?.name ?? ""} ${
-                      product.category?.name ?? ""
-                    }`}
+                    key={godown.id}
+                    value={godown.name}
                     onSelect={() => {
-                      onChange(product.id);
+                      onChange(godown.id);
                       setPopoverOpen(false);
                     }}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === product.id ? "opacity-100" : "opacity-0",
+                        value === godown.id ? "opacity-100" : "opacity-0",
                       )}
                     />
-                    <div>
-                      <div>{product.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {product.brand?.name} &middot; {product.category?.name}
-                      </div>
-                    </div>
+                    {godown.name}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -97,7 +98,7 @@ export const ProductSelectWithDialog = ({ value, onChange, branchId }: Props) =>
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add New Product
+                  Add New Godown
                 </CommandItem>
               </CommandGroup>
             </CommandList>
@@ -105,7 +106,7 @@ export const ProductSelectWithDialog = ({ value, onChange, branchId }: Props) =>
         </PopoverContent>
       </Popover>
 
-      <ProductDialog
+      <GodownDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         branchId={branchId}

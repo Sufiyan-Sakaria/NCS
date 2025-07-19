@@ -30,6 +30,7 @@ import { useCategories } from "@/hooks/UseCategory";
 import { useUnits } from "@/hooks/UseUnit";
 import { Product } from "@/types/Product";
 import { X } from "lucide-react";
+import { AxiosError } from "axios";
 
 interface ProductDialogProps {
   trigger?: React.ReactNode;
@@ -121,7 +122,7 @@ export function ProductDialog({
             onSuccess?.();
           },
           onError: () => toast.error("Failed to update product"),
-        }
+        },
       );
     } else {
       if (enableStock && initialStocks.length === 0) {
@@ -149,8 +150,11 @@ export function ProductDialog({
             onOpenChange(false);
             onSuccess?.();
           },
-          onError: () => toast.error("Failed to add product"),
-        }
+          onError: (error: Error) => {
+            const errorMessage = error.message || "Failed to add product";
+            toast.error(errorMessage);
+          },
+        },
       );
     }
   };
@@ -332,15 +336,12 @@ export function ProductDialog({
                         >
                           <div className="text-sm text-muted-foreground">
                             <span className="font-medium">
-                              {godowns?.find((g) => g.id === entry.godownId)?.name || "Unknown Godown"}
+                              {godowns?.find((g) => g.id === entry.godownId)?.name ||
+                                "Unknown Godown"}
                             </span>{" "}
                             – Qty: {entry.qty}, Thaan: {entry.thaan}
                           </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => removeStockEntry(idx)}
-                          >
+                          <Button size="icon" variant="ghost" onClick={() => removeStockEntry(idx)}>
                             <X className="w-4 h-4" />
                           </Button>
                         </div>
@@ -360,8 +361,8 @@ export function ProductDialog({
                 ? "Saving..."
                 : "Save Changes"
               : isCreating
-                ? "Adding..."
-                : "Add Product"}
+              ? "Adding..."
+              : "Add Product"}
           </Button>
         </DialogFooter>
       </DialogContent>

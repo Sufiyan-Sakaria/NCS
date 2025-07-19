@@ -68,7 +68,6 @@ export function AddCategoryDialog({
           id: initialData.id,
           name: name.trim(),
           abb: abb.trim(),
-          updatedBy: user?.id,
         },
         {
           onSuccess: () => {
@@ -77,7 +76,7 @@ export function AddCategoryDialog({
             onSuccess?.();
           },
           onError: () => toast.error("Failed to update category"),
-        }
+        },
       );
     } else {
       createCategory(
@@ -85,7 +84,6 @@ export function AddCategoryDialog({
           name: name.trim(),
           abb: abb.trim(),
           branchId,
-          createdBy: user?.id ?? "",
         },
         {
           onSuccess: () => {
@@ -95,7 +93,7 @@ export function AddCategoryDialog({
             onSuccess?.();
           },
           onError: () => toast.error("Failed to add category"),
-        }
+        },
       );
     }
   };
@@ -137,8 +135,8 @@ export function AddCategoryDialog({
                 ? "Saving..."
                 : "Save Changes"
               : isCreating
-                ? "Adding..."
-                : "Add Category"}
+              ? "Adding..."
+              : "Add Category"}
           </Button>
         </DialogFooter>
       </DialogContent>

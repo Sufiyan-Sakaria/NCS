@@ -4,10 +4,21 @@ import {
   deleteProduct,
   DeleteProductPayload,
   getProductsByBranch,
+  getProductStock,
   updateProduct,
   UpdateProductPayload,
 } from "@/services/product";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+// ==================== PRODUCT STOCK ====================
+export const useProductStock = (branchId: string | null, productId?: string, godownId?: string) =>
+  useQuery({
+    queryKey: ["product-stock", branchId, productId, godownId],
+    queryFn: () => getProductStock(branchId!, productId, godownId),
+    enabled: !!branchId,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 4 * 60 * 1000,
+  });
 
 // ==================== GET ====================
 

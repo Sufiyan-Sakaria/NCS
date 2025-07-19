@@ -325,6 +325,7 @@ export const createLedger = async (
     }
 
     // Start transaction
+    let capitalAccountGroupId: string | null = null;
     const result = await prisma.$transaction(async (tx) => {
       // Get parent group code
       const parentGroup = await tx.accountGroup.findUnique({
@@ -472,6 +473,10 @@ export const createLedger = async (
             },
           });
         }
+        // Track capital account's group for parent update
+        if (capitalAccount && capitalAccount.accountGroupId) {
+          capitalAccountGroupId = capitalAccount.accountGroupId;
+        }
 
         // 4. Get existing journal for this branch and year
         const journal = await tx.journalBook.findFirst({
@@ -540,6 +545,47 @@ export const createLedger = async (
             },
           },
         });
+      }
+
+      // Helper: Recursively update parent group balances
+      async function updateParentBalances(groupId: string) {
+        if (!groupId) return;
+        // Get all direct child ledgers and groups
+        const [childGroups, childLedgers] = await Promise.all([
+          tx.accountGroup.findMany({
+            where: { parentId: groupId, branchId, isActive: true },
+            select: { id: true, balance: true },
+          }),
+          tx.ledger.findMany({
+            where: { accountGroupId: groupId, branchId, isActive: true },
+            select: { balance: true },
+          }),
+        ]);
+        // Sum balances
+        let total = 0;
+        for (const g of childGroups) total += Number(g.balance);
+        for (const l of childLedgers) total += Number(l.balance);
+        // Update this group
+        await tx.accountGroup.update({
+          where: { id: groupId },
+          data: { balance: total },
+        });
+        // Get parent and recurse
+        const parent = await tx.accountGroup.findUnique({
+          where: { id: groupId },
+          select: { parentId: true },
+        });
+        if (parent?.parentId) {
+          await updateParentBalances(parent.parentId);
+        }
+      }
+
+      // After ledger creation, update parent balances for the main group
+      await updateParentBalances(accountGroupId);
+
+      // If a capitalAccount was created or found, update its parent balances as well
+      if (capitalAccountGroupId) {
+        await updateParentBalances(capitalAccountGroupId);
       }
 
       return ledger;
@@ -641,7 +687,7 @@ export const createDefaultAccounts = async (
     > = {
       Assets: ["FixedAssets", "CurrentAssets"],
       Liabilities: ["CurrentLiabilities"],
-      Capital: ["CapitalAccount"],
+      Capital: [],
       Income: ["DirectIncomes", "IndirectIncomes"],
       Expenses: ["DirectExpenses", "IndirectExpenses"],
       Drawings: [],

@@ -59,7 +59,7 @@ export function AddBrandDialog({ trigger, onSuccess }: AddBrandDialogProps) {
         onError: () => {
           toast.error("Failed to add brand");
         },
-      }
+      },
     );
   };
 
@@ -78,9 +78,7 @@ export function AddBrandDialog({ trigger, onSuccess }: AddBrandDialogProps) {
             <Input
               id="name"
               value={brand.name}
-              onChange={(e) =>
-                setBrand((b) => ({ ...b, name: e.target.value }))
-              }
+              onChange={(e) => setBrand((b) => ({ ...b, name: e.target.value }))}
               className="col-span-3"
               placeholder="Brand name"
             />
@@ -92,9 +90,10 @@ export function AddBrandDialog({ trigger, onSuccess }: AddBrandDialogProps) {
             <Input
               id="abb"
               value={brand.abb}
-              onChange={(e) =>
-                setBrand((b) => ({ ...b, abb: e.target.value }))
-              }
+              onChange={(e) => {
+                const upper = e.target.value.toUpperCase().slice(0, 3);
+                setBrand({ ...brand, abb: upper });
+              }}
               className="col-span-3"
               placeholder="e.g., NIKE"
             />

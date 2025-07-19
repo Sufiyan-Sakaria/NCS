@@ -5,6 +5,7 @@ import {
   updateProduct,
   toggleProductStatus,
   deleteProduct,
+  getProductStock,
 } from "../controllers/Product";
 
 const router = Router();
@@ -23,5 +24,8 @@ router.patch("/:id/toggle", toggleProductStatus);
 
 // DELETE a product
 router.delete("/:id", deleteProduct);
+
+// GET product stock by branch, with optional productId and godownId as query params
+router.get("/:branchId/stocks", getProductStock);
 
 export default router;
