@@ -609,7 +609,7 @@ model InvoiceItem {
   quantity  Float
   rate      Float
   discount  Float    @default(0)
-  taxRate   Float    @default(0)
+  cartage   Float    @default(0)
   amount    Float
   createdBy String?
   updatedBy String?
