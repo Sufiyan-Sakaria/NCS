@@ -3,7 +3,7 @@ import {
   AccountGroupType,
   PrismaClient,
 } from "../../generated/prisma";
-import { Request, Response, NextFunction, RequestHandler } from "express";
+import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
 
 const prisma = new PrismaClient();

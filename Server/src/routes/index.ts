@@ -1,5 +1,6 @@
 import express from "express";
 const router = express.Router();
+import { protect } from "../middlewares/authentication";
 
 import Company from "./Company";
 import User from "./User";
@@ -12,7 +13,7 @@ import Godown from "./Godown";
 import Product from "./Product";
 import ProductLedger from "./ProductLedger";
 import Account from "./Account";
-import { protect } from "../middlewares/authentication";
+import Invoice from "./Invoice";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -50,5 +51,8 @@ router.use("/product-ledger", protect, ProductLedger);
 
 // Account & Ledger Routes
 router.use("/account", protect, Account);
+
+// Invoice Routes
+router.use("/invoice", protect, Invoice);
 
 export default router;

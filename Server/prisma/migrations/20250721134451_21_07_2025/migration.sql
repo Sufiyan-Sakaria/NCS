@@ -1,0 +1,23 @@
+-- AlterTable
+ALTER TABLE "Invoice" ADD COLUMN     "invoiceLedgerId" TEXT;
+
+-- AlterTable
+ALTER TABLE "JournalBook" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "Ledger" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "Product" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "ProductBook" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "ProductLedgerEntry" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "Unit" ALTER COLUMN "updatedAt" SET DEFAULT CURRENT_TIMESTAMP;
+
+-- AddForeignKey
+ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_invoiceLedgerId_fkey" FOREIGN KEY ("invoiceLedgerId") REFERENCES "Ledger"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -88,8 +88,6 @@ export function GettingStartedForm({
       if (axios.isAxiosError(error)) {
         toast.error(error.response?.data?.message || error.message || "Failed to create company");
         console.log(error)
-      } else {
-        toast.error("Something went wrong");
       }
     }
   };

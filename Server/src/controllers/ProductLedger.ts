@@ -206,7 +206,7 @@ export const getProductEntries = async (
         },
       },
       orderBy: {
-        date: "desc",
+        date: "asc",
       },
     });
 

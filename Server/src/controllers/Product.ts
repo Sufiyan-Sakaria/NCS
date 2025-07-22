@@ -150,7 +150,7 @@ export const createProduct = async (
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // Create product
+      // 1. Create product
       const product = await tx.product.create({
         data: {
           name,
@@ -166,8 +166,8 @@ export const createProduct = async (
       let totalQty = 0;
       let totalThaan = 0;
 
+      // 2. If initial stocks provided
       if (Array.isArray(initialStocks) && initialStocks.length > 0) {
-        // Get latest product book
         const ledger = await tx.productBook.findFirst({
           where: { branchId },
           orderBy: { createdAt: "desc" },
@@ -177,11 +177,26 @@ export const createProduct = async (
           throw new AppError("No product ledger found for branch", 400);
         }
 
-        // Insert stock and ledger entries
+        // 3. Group stocks by godownId
+        const stockMap = new Map<string, { qty: number; thaan: number }>();
+
         for (const stock of initialStocks) {
           const { godownId, qty = 0, thaan = 0 } = stock;
           if (!godownId || (qty === 0 && thaan === 0)) continue;
 
+          if (!stockMap.has(godownId)) {
+            stockMap.set(godownId, { qty, thaan });
+          } else {
+            const existing = stockMap.get(godownId)!;
+            stockMap.set(godownId, {
+              qty: existing.qty + qty,
+              thaan: existing.thaan + thaan,
+            });
+          }
+        }
+
+        // 4. Create stock & ledger entries
+        for (const [godownId, { qty, thaan }] of stockMap.entries()) {
           await tx.productStock.create({
             data: {
               productId: product.id,
@@ -211,7 +226,7 @@ export const createProduct = async (
           totalThaan += thaan;
         }
 
-        // Update qty and thaan if there were valid stocks
+        // 5. Update total product qty/thaan
         await tx.product.update({
           where: { id: product.id },
           data: {
@@ -221,7 +236,7 @@ export const createProduct = async (
         });
       }
 
-      // Fetch and return updated product
+      // 6. Return full product details
       const updatedProduct = await tx.product.findUnique({
         where: { id: product.id },
         include: {

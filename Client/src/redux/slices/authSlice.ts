@@ -21,6 +21,7 @@ export const authSlice = createSlice({
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
       state.isAuthenticated = true;
+      state.selectedBranchId = action.payload.branches[0]?.id || null;
     },
     clearUser: (state) => {
       state.user = null;
@@ -38,11 +39,6 @@ export const authSlice = createSlice({
   },
 });
 
-export const {
-  setUser,
-  clearUser,
-  setSelectedBranch,
-  addBranch,
-} = authSlice.actions;
+export const { setUser, clearUser, setSelectedBranch, addBranch } = authSlice.actions;
 
 export default authSlice.reducer;
