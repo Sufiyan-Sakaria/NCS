@@ -6,23 +6,35 @@ import { EntryType, InvoiceType, Prisma } from "../../generated/prisma";
 const prisma = new PrismaClient();
 
 // Get all invoices
-export const getInvoices = async (
+export const getInvoicesByBranch = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
+  const { branchId } = req.params;
+
   try {
+    if (!branchId) {
+      return next(new AppError("Branch ID is required", 400));
+    }
+
     const invoices = await prisma.invoice.findMany({
+      where: {
+        invoiceBook: {
+          branchId,
+        },
+      },
       include: {
-        items: true,
-        ledger: true,
         createdByUser: true,
-        updatedByUser: true,
-        invoiceBook: true,
+      },
+      orderBy: {
+        date: "desc",
       },
     });
-    res.json(invoices);
+
+    res.status(200).json({ success: true, data: invoices });
   } catch (error) {
+    console.error(error);
     next(new AppError("Failed to fetch invoices", 500));
   }
 };
@@ -89,6 +101,7 @@ export const createInvoice = async (
         const invoiceBook = await tx.invoiceBook.findFirst({
           where: {
             branchId,
+            type,
           },
           orderBy: { createdAt: "desc" },
         });
@@ -105,6 +118,20 @@ export const createInvoice = async (
 
         // Ensure the date is in ISO-8601 format
         const formattedDate = new Date(date).toISOString();
+
+        for (const item of items) {
+          if (!item.godownId) {
+            throw new AppError("Each invoice item must have a godownId", 400);
+          }
+
+          const godown = await tx.godown.findUnique({
+            where: { id: item.godownId },
+          });
+
+          if (!godown) {
+            throw new AppError(`Invalid godownId: ${item.godownId}`, 400);
+          }
+        }
 
         // 2. Create invoice and items
         const invoice = await tx.invoice.create({
@@ -312,6 +339,28 @@ export const createInvoice = async (
             throw new AppError("No product book found for this invoice", 400);
           }
 
+          // Get total product stock before this transaction
+          const totalBefore = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: {
+              qty: true,
+              thaan: true,
+            },
+          });
+
+          if (!totalBefore) {
+            throw new AppError(
+              `Product with ID ${item.productId} not found`,
+              404
+            );
+          }
+
+          const previousQty = totalBefore.qty;
+          const previousThaan = totalBefore.thaan;
+
+          const finalQty = previousQty + qtyDelta;
+          const finalThaan = previousThaan + thaanDelta;
+
           await tx.productLedgerEntry.create({
             data: {
               productId: item.productId,
@@ -321,6 +370,11 @@ export const createInvoice = async (
               type: entryType,
               qty: item.quantity,
               thaan: item.thaan || 0,
+              previousQty,
+              previousThaan,
+              finalQty,
+              finalThaan,
+              rate: item.rate,
               narration: `Invoice ${invoice.invoiceNumber} - ${type}`,
               createdBy: userId,
               invoiceId: invoice.id,

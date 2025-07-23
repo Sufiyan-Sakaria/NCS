@@ -40,7 +40,6 @@ import { ProductSelectWithDialog } from "@/components/ProductSelectWithDIalog";
 
 const ProductEntriesPage: NextPage = () => {
   const branchId = useActiveBranchId();
-
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
@@ -69,10 +68,34 @@ const ProductEntriesPage: NextPage = () => {
   const summary = entriesData?.summary;
   const totalEntries = entriesData?.totalEntries || 0;
 
+  const unitAbb = entries[0]?.product?.unit?.abb || "";
+
+  // Prepare balance b/f row if data is present
+  const balanceBF = entries.length > 0 ? {
+    id: "balance-bf",
+    date: null,
+    type: "BALANCE_BF",
+    godown: null,
+    qty: 0,
+    thaan: 0,
+    product: entries[0].product,
+    runningQty: entries[0].previousQty,
+    runningThaan: entries[0].previousThaan,
+    createdByUser: null,
+  } : null;
+
   return (
     <main className="p-4 space-y-3">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Product Ledger</h1>
+        <h1 className="text-2xl font-semibold">
+          Product Ledger
+          {fromDate || toDate ? (
+            <span className="ml-2 text-sm text-muted-foreground">
+              {fromDate && `From ${format(parseISO(fromDate), "dd MMM yyyy")}`}{" "}
+              {toDate && `to ${format(parseISO(toDate), "dd MMM yyyy")}`}
+            </span>
+          ) : null}
+        </h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Package className="w-4 h-4" />
           Total Entries: {totalEntries}
@@ -93,16 +116,12 @@ const ProductEntriesPage: NextPage = () => {
               />
             </div>
 
-
             {/* From Date */}
             <div className="space-y-1">
               <label className="text-sm font-medium">From Date</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {fromDate ? format(parseISO(fromDate), "PPP") : "Pick a date"}
                   </Button>
@@ -111,9 +130,7 @@ const ProductEntriesPage: NextPage = () => {
                   <Calendar
                     mode="single"
                     selected={fromDate ? parseISO(fromDate) : undefined}
-                    onSelect={(date) =>
-                      setFromDate(date ? date.toISOString().split("T")[0] : "")
-                    }
+                    onSelect={(date) => setFromDate(date ? date.toISOString().split("T")[0] : "")}
                     initialFocus
                   />
                 </PopoverContent>
@@ -125,10 +142,7 @@ const ProductEntriesPage: NextPage = () => {
               <label className="text-sm font-medium">To Date</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {toDate ? format(parseISO(toDate), "PPP") : "Pick a date"}
                   </Button>
@@ -137,9 +151,7 @@ const ProductEntriesPage: NextPage = () => {
                   <Calendar
                     mode="single"
                     selected={toDate ? parseISO(toDate) : undefined}
-                    onSelect={(date) =>
-                      setToDate(date ? date.toISOString().split("T")[0] : "")
-                    }
+                    onSelect={(date) => setToDate(date ? date.toISOString().split("T")[0] : "")}
                     initialFocus
                   />
                 </PopoverContent>
@@ -180,53 +192,24 @@ const ProductEntriesPage: NextPage = () => {
       {/* Summary Cards */}
       {summary && selectedProductId && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total In</p>
-                  <p className="text-2xl font-bold text-green-600">{summary.totalIn}</p>
+          {[
+            { label: "Total In", value: summary.totalIn, icon: <TrendingUp className="h-8 w-8 text-green-600" />, color: "text-green-600" },
+            { label: "Total Out", value: summary.totalOut, icon: <TrendingDown className="h-8 w-8 text-red-600" />, color: "text-red-600" },
+            { label: "Current Qty", value: `${summary.currentQty} ${unitAbb}`, icon: <Package className="h-8 w-8 text-blue-600" />, color: "text-blue-600" },
+            { label: "Current Thaan", value: summary.currentThaan, icon: <Package className="h-8 w-8 text-blue-600" />, color: "text-blue-600" },
+          ].map((card, i) => (
+            <Card className="p-0" key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+                    <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+                  </div>
+                  {card.icon}
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="p-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Out</p>
-                  <p className="text-2xl font-bold text-red-600">{summary.totalOut}</p>
-                </div>
-                <TrendingDown className="h-8 w-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="p-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Current Qty</p>
-                  <p className="text-2xl font-bold">
-                    {summary.currentQty} {" "}
-                    {entries[0]?.product?.unit.abb ?? ""}
-                  </p>
-                </div>
-                <Package className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="p-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Current Thaan</p>
-                  <p className="text-2xl font-bold">{summary.currentThaan}</p>
-                </div>
-                <Package className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -251,9 +234,6 @@ const ProductEntriesPage: NextPage = () => {
           <CardContent className="p-6 text-center">
             <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-2">Select a product to view entries</p>
-            <p className="text-sm text-muted-foreground">
-              Choose a product from the dropdown above to see its stock movements
-            </p>
           </CardContent>
         </Card>
       ) : entries.length === 0 ? (
@@ -261,15 +241,12 @@ const ProductEntriesPage: NextPage = () => {
           <CardContent className="p-6 text-center">
             <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-2">No entries found</p>
-            <p className="text-sm text-muted-foreground">
-              No stock movements match your current filters
-            </p>
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardContent className="p-0">
-            <div className="rounded-md border shadow-sm overflow-hidden">
+            <div className="rounded-md border shadow-sm overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -285,9 +262,28 @@ const ProductEntriesPage: NextPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Balance B/F row */}
+                  {balanceBF && (
+                    <TableRow key="balance-bf" className="bg-muted">
+                      <TableCell colSpan={2} className="text-center font-bold">
+                        Balance B/F
+                      </TableCell>
+                      <TableCell className="border-r text-center">—</TableCell>
+                      <TableCell className="border-r text-center">—</TableCell>
+                      <TableCell className="border-r text-center">—</TableCell>
+                      <TableCell className="border-r text-center">{unitAbb}</TableCell>
+                      <TableCell className="border-r text-center font-bold">
+                        {balanceBF.runningQty}
+                      </TableCell>
+                      <TableCell className="border-r text-center font-bold">
+                        {balanceBF.runningThaan}
+                      </TableCell>
+                      <TableCell className="text-center">—</TableCell>
+                    </TableRow>
+                  )}
                   {entries.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="border-r">
+                      <TableCell className="border-r text-center">
                         <div className="flex items-center justify-center gap-2">
                           <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                           {format(new Date(entry.date), "MMM dd, yyyy")}
@@ -305,27 +301,13 @@ const ProductEntriesPage: NextPage = () => {
                           {entry.type === "IN" ? "Stock In" : "Stock Out"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="border-r font-medium text-center">
-                        {entry.godown?.name || "N/A"}
-                      </TableCell>
-                      <TableCell className="border-r text-center font-mono">
-                        {entry.qty.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="border-r text-center font-mono">
-                        {entry.thaan.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="border-r font-medium text-center">
-                        {entry.product.unit.abb || "N/A"}
-                      </TableCell>
-                      <TableCell className="border-r text-center font-mono font-bold">
-                        {entry.runningQty.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="border-r text-center font-mono font-bold">
-                        {entry.runningThaan.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {entry.createdByUser?.name || "N/A"}
-                      </TableCell>
+                      <TableCell className="border-r text-center">{entry.godown?.name}</TableCell>
+                      <TableCell className="border-r text-center">{entry.qty}</TableCell>
+                      <TableCell className="border-r text-center">{entry.thaan}</TableCell>
+                      <TableCell className="border-r text-center">{unitAbb}</TableCell>
+                      <TableCell className="border-r text-center font-bold">{entry.runningQty}</TableCell>
+                      <TableCell className="border-r text-center font-bold">{entry.runningThaan}</TableCell>
+                      <TableCell className="text-center">{entry.createdByUser?.name || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

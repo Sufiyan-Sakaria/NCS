@@ -158,25 +158,22 @@ export const getProductEntries = async (
   try {
     const filters: any = {
       productId,
+      isActive: true,
     };
 
-    // Add timestamp filters
+    // Filter by date range if provided
     if (from || to) {
       filters.date = {};
-      if (from) {
-        filters.date.gte = new Date(from as string);
-      }
-      if (to) {
-        filters.date.lte = new Date(to as string);
-      }
+      if (from) filters.date.gte = new Date(from as string);
+      if (to) filters.date.lte = new Date(to as string);
     }
 
-    // Add optional godown filter
+    // Optional godown filter
     if (godownId) {
       filters.godownId = godownId as string;
     }
 
-    // Add optional type filter (IN/OUT)
+    // Optional type filter
     if (type && (type === "IN" || type === "OUT")) {
       filters.type = type;
     }
@@ -206,28 +203,25 @@ export const getProductEntries = async (
         },
       },
       orderBy: {
-        date: "asc",
+        createdAt: "asc",
       },
     });
 
-    // Calculate running totals
+    // ✅ Calculate running totals in correct order
     let runningQty = 0;
     let runningThaan = 0;
 
-    const entriesWithRunningTotals = entries
-      .reverse()
-      .map((entry) => {
-        const factor = entry.type === "IN" ? 1 : -1;
-        runningQty += entry.qty * factor;
-        runningThaan += entry.thaan * factor;
+    const entriesWithRunningTotals = entries.map((entry) => {
+      const factor = entry.type === "IN" ? 1 : -1;
+      runningQty += entry.qty * factor;
+      runningThaan += entry.thaan * factor;
 
-        return {
-          ...entry,
-          runningQty,
-          runningThaan,
-        };
-      })
-      .reverse();
+      return {
+        ...entry,
+        runningQty,
+        runningThaan,
+      };
+    });
 
     res.status(200).json({
       success: true,

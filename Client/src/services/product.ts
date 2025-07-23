@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { Godown } from "@/types/Godown";
 import { Product } from "@/types/Product";
 import { AxiosResponse } from "axios";
 
@@ -16,6 +17,7 @@ export interface CreateProductPayload {
     godownId: string;
     qty: number;
     thaan: number;
+    rate: number;
   }[];
 }
 
@@ -52,9 +54,9 @@ export interface ProductStockSummary {
 export interface ProductStockEntry {
   _key: string;
   productId: string;
-  product: any;
+  product: Product;
   godownId: string;
-  godown: any;
+  godown: Godown;
   qty: number;
   thaan: number;
 }

@@ -35,6 +35,11 @@ import { useProducts, useDeleteProduct } from "@/hooks/UseProduct";
 import { ProductDialog } from "@/components/ProductDialog";
 import { Product } from "@/types/Product";
 
+const currency = new Intl.NumberFormat("en-PK", {
+  style: "currency",
+  currency: "PKR",
+});
+
 const Page: NextPage = () => {
   const branchId = useActiveBranchId();
   const { data: products, isLoading, error, refetch } = useProducts(branchId!);
@@ -111,50 +116,59 @@ const Page: NextPage = () => {
               <TableHead className="border-r">Sale Rate</TableHead>
               <TableHead className="border-r">Qty</TableHead>
               <TableHead className="border-r">Thaan</TableHead>
+              <TableHead className="border-r">Value</TableHead>
               <TableHead className="border-r">Status</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell className="border-r text-center">{product.hsn}</TableCell>
-                <TableCell className="border-r font-medium">{product.name}</TableCell>
-                <TableCell className="border-r">{product.saleRate}</TableCell>
-                <TableCell className="border-r">{product.qty}</TableCell>
-                <TableCell className="border-r">{product.thaan}</TableCell>
-                <TableCell className="border-r">{product.isActive ? "Active" : "Inactive"}</TableCell>
-                <TableCell className="text-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="focus:outline-none hover:bg-muted p-1 rounded-md">
-                      <MoreVertical className="w-5 h-5" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setEditProductData(product);
-                          setEditDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer text-red-600 focus:bg-red-600"
-                        onClick={() => {
-                          setDeleteId(product.id);
-                          setDeleteName(product.name);
-                        }}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+            {products.map((product) => {
+              const value = product.qty * product.saleRate;
+              return (
+                <TableRow key={product.id}>
+                  <TableCell className="border-r text-center">{product.hsn}</TableCell>
+                  <TableCell className="border-r font-medium">{product.name}</TableCell>
+                  <TableCell className="border-r">
+                    {currency.format(product.saleRate)}
+                  </TableCell>
+                  <TableCell className="border-r">{product.qty}</TableCell>
+                  <TableCell className="border-r">{product.thaan}</TableCell>
+                  <TableCell className="border-r">{currency.format(value)}</TableCell>
+                  <TableCell className="border-r">
+                    {product.isActive ? "Active" : "Inactive"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="focus:outline-none hover:bg-muted p-1 rounded-md">
+                        <MoreVertical className="w-5 h-5" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setEditProductData(product);
+                            setEditDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer text-red-600 focus:bg-red-600"
+                          onClick={() => {
+                            setDeleteId(product.id);
+                            setDeleteName(product.name);
+                          }}
+                        >
+                          <Trash className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

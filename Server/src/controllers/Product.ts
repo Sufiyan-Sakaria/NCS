@@ -178,25 +178,45 @@ export const createProduct = async (
         }
 
         // 3. Group stocks by godownId
-        const stockMap = new Map<string, { qty: number; thaan: number }>();
+        const stockMap = new Map<
+          string,
+          { qty: number; thaan: number; rate: number }
+        >();
 
         for (const stock of initialStocks) {
-          const { godownId, qty = 0, thaan = 0 } = stock;
+          const { godownId, qty = 0, thaan = 0, rate = 0 } = stock;
           if (!godownId || (qty === 0 && thaan === 0)) continue;
 
           if (!stockMap.has(godownId)) {
-            stockMap.set(godownId, { qty, thaan });
+            stockMap.set(godownId, { qty, thaan, rate });
           } else {
             const existing = stockMap.get(godownId)!;
+            const totalQty = existing.qty + qty;
+
             stockMap.set(godownId, {
-              qty: existing.qty + qty,
+              qty: totalQty,
               thaan: existing.thaan + thaan,
+              rate:
+                totalQty > 0
+                  ? (existing.rate * existing.qty + rate * qty) / totalQty
+                  : 0,
             });
           }
         }
 
         // 4. Create stock & ledger entries
-        for (const [godownId, { qty, thaan }] of stockMap.entries()) {
+        let runningQty = 0;
+        let runningThaan = 0;
+
+        const sortedEntries = Array.from(stockMap.entries()).sort(([a], [b]) =>
+          a.localeCompare(b)
+        );
+
+        for (const [godownId, { qty, thaan, rate }] of sortedEntries) {
+          const previousQty = runningQty;
+          const previousThaan = runningThaan;
+
+          // Create product stock
           await tx.productStock.create({
             data: {
               productId: product.id,
@@ -208,6 +228,7 @@ export const createProduct = async (
             },
           });
 
+          // Create ledger entry
           await tx.productLedgerEntry.create({
             data: {
               productId: product.id,
@@ -217,21 +238,36 @@ export const createProduct = async (
               date: new Date(),
               qty,
               thaan,
+              previousQty,
+              previousThaan,
+              finalQty: previousQty + qty,
+              finalThaan: previousThaan + thaan,
+              rate,
               narration: "Opening Stock",
               createdBy: userId,
             },
           });
 
+          runningQty += qty;
+          runningThaan += thaan;
           totalQty += qty;
           totalThaan += thaan;
         }
 
-        // 5. Update total product qty/thaan
+        const totalValue = Array.from(stockMap.values()).reduce(
+          (acc, cur) => acc + cur.qty * cur.rate,
+          0
+        );
+
+        const averageRate = totalQty > 0 ? totalValue / totalQty : 0;
+
+        // 5. Update product with total stock
         await tx.product.update({
           where: { id: product.id },
           data: {
             qty: totalQty,
             thaan: totalThaan,
+            previousPurchaseRate: averageRate,
           },
         });
       }
@@ -337,119 +373,119 @@ export const deleteProduct = async (
 };
 
 // TRANSFER stock between godowns
-export const transferGodownStock = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { productId, fromGodownId, toGodownId, quantity } = req.body;
-    let thaan = req.body.thaan;
-    if (thaan === undefined || thaan === null) thaan = 0;
-    const { id: userId } = req.user!;
+// export const transferGodownStock = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   try {
+//     const { productId, fromGodownId, toGodownId, quantity } = req.body;
+//     let thaan = req.body.thaan;
+//     if (thaan === undefined || thaan === null) thaan = 0;
+//     const { id: userId } = req.user!;
 
-    if (!productId || !fromGodownId || !toGodownId || !quantity) {
-      return next(new AppError("All fields are required", 400));
-    }
+//     if (!productId || !fromGodownId || !toGodownId || !quantity) {
+//       return next(new AppError("All fields are required", 400));
+//     }
 
-    // Check stock in fromGodown
-    const fromStock = await prisma.productStock.findFirst({
-      where: { productId, godownId: fromGodownId },
-    });
+//     // Check stock in fromGodown
+//     const fromStock = await prisma.productStock.findFirst({
+//       where: { productId, godownId: fromGodownId },
+//     });
 
-    if (!fromStock || fromStock.qty < quantity || fromStock.thaan < thaan) {
-      return next(new AppError("Insufficient stock in source godown.", 400));
-    }
+//     if (!fromStock || fromStock.qty < quantity || fromStock.thaan < thaan) {
+//       return next(new AppError("Insufficient stock in source godown.", 400));
+//     }
 
-    // Get latest product book for the branch
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-    if (!product) return next(new AppError("Product not found", 404));
-    const productBook = await prisma.productBook.findFirst({
-      where: { branchId: product.branchId },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!productBook)
-      return next(new AppError("No product ledger found for branch", 400));
+//     // Get latest product book for the branch
+//     const product = await prisma.product.findUnique({
+//       where: { id: productId },
+//     });
+//     if (!product) return next(new AppError("Product not found", 404));
+//     const productBook = await prisma.productBook.findFirst({
+//       where: { branchId: product.branchId },
+//       orderBy: { createdAt: "desc" },
+//     });
+//     if (!productBook)
+//       return next(new AppError("No product ledger found for branch", 400));
 
-    // Transaction for transfer
-    const transfer = await prisma.$transaction(async (tx) => {
-      // Deduct from source godown
-      await tx.productStock.update({
-        where: { id: fromStock.id },
-        data: { qty: { decrement: quantity }, thaan: { decrement: thaan } },
-      });
+//     // Transaction for transfer
+//     const transfer = await prisma.$transaction(async (tx) => {
+//       // Deduct from source godown
+//       await tx.productStock.update({
+//         where: { id: fromStock.id },
+//         data: { qty: { decrement: quantity }, thaan: { decrement: thaan } },
+//       });
 
-      // Add to destination godown (create or update)
-      const toStock = await tx.productStock.findFirst({
-        where: { productId, godownId: toGodownId },
-      });
+//       // Add to destination godown (create or update)
+//       const toStock = await tx.productStock.findFirst({
+//         where: { productId, godownId: toGodownId },
+//       });
 
-      if (toStock) {
-        await tx.productStock.update({
-          where: { id: toStock.id },
-          data: { qty: { increment: quantity }, thaan: { increment: thaan } },
-        });
-      } else {
-        await tx.productStock.create({
-          data: {
-            productId,
-            godownId: toGodownId,
-            unitId: fromStock.unitId,
-            qty: quantity,
-            thaan: thaan,
-            createdBy: userId,
-          },
-        });
-      }
+//       if (toStock) {
+//         await tx.productStock.update({
+//           where: { id: toStock.id },
+//           data: { qty: { increment: quantity }, thaan: { increment: thaan } },
+//         });
+//       } else {
+//         await tx.productStock.create({
+//           data: {
+//             productId,
+//             godownId: toGodownId,
+//             unitId: fromStock.unitId,
+//             qty: quantity,
+//             thaan: thaan,
+//             createdBy: userId,
+//           },
+//         });
+//       }
 
-      // Ledger entry: OUT from source godown
-      await tx.productLedgerEntry.create({
-        data: {
-          productId,
-          productBookId: productBook.id,
-          godownId: fromGodownId,
-          type: "OUT",
-          date: new Date(),
-          qty: quantity,
-          thaan: thaan,
-          narration: "Godown Transfer Out",
-          createdBy: userId,
-        },
-      });
+//       // Ledger entry: OUT from source godown
+//       await tx.productLedgerEntry.create({
+//         data: {
+//           productId,
+//           productBookId: productBook.id,
+//           godownId: fromGodownId,
+//           type: "OUT",
+//           date: new Date(),
+//           qty: quantity,
+//           thaan: thaan,
+//           narration: "Godown Transfer Out",
+//           createdBy: userId,
+//         },
+//       });
 
-      // Ledger entry: IN to destination godown
-      await tx.productLedgerEntry.create({
-        data: {
-          productId,
-          productBookId: productBook.id,
-          godownId: toGodownId,
-          type: "IN",
-          date: new Date(),
-          qty: quantity,
-          thaan: thaan,
-          narration: "Godown Transfer In",
-          createdBy: userId,
-        },
-      });
+//       // Ledger entry: IN to destination godown
+//       await tx.productLedgerEntry.create({
+//         data: {
+//           productId,
+//           productBookId: productBook.id,
+//           godownId: toGodownId,
+//           type: "IN",
+//           date: new Date(),
+//           qty: quantity,
+//           thaan: thaan,
+//           narration: "Godown Transfer In",
+//           createdBy: userId,
+//         },
+//       });
 
-      // Create GodownTransfer record and link to productBook
-      return tx.godownTransfer.create({
-        data: {
-          productId,
-          fromGodownId,
-          toGodownId,
-          quantity,
-          thaan,
-          productBookId: productBook.id,
-          createdBy: userId,
-        },
-      });
-    });
+//       // Create GodownTransfer record and link to productBook
+//       return tx.godownTransfer.create({
+//         data: {
+//           productId,
+//           fromGodownId,
+//           toGodownId,
+//           quantity,
+//           thaan,
+//           productBookId: productBook.id,
+//           createdBy: userId,
+//         },
+//       });
+//     });
 
-    res.status(200).json({ success: true, data: transfer });
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.status(200).json({ success: true, data: transfer });
+//   } catch (error) {
+//     next(error);
+//   }
+// };

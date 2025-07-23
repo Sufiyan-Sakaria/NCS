@@ -3,14 +3,14 @@ import {
   createInvoice,
   deleteInvoice,
   getInvoiceById,
-  getInvoices,
+  getInvoicesByBranch,
   updateInvoice,
 } from "../controllers/Invoice";
 
 const router = Router();
 
 // Route to get all invoices
-router.get("/", getInvoices);
+router.get("/:branchId", getInvoicesByBranch);
 
 // Route to get a single invoice by ID
 router.get("/:id", getInvoiceById);

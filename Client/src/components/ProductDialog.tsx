@@ -29,8 +29,6 @@ import { useBrands } from "@/hooks/UseBrand";
 import { useCategories } from "@/hooks/UseCategory";
 import { useUnits } from "@/hooks/UseUnit";
 import { Product } from "@/types/Product";
-import { X } from "lucide-react";
-import { AxiosError } from "axios";
 
 interface ProductDialogProps {
   trigger?: React.ReactNode;
@@ -63,9 +61,9 @@ export function ProductDialog({
   });
 
   const [enableStock, setEnableStock] = useState(false);
-  const [stockEntry, setStockEntry] = useState({ godownId: "", qty: 0, thaan: 0 });
+  const [stockEntry, setStockEntry] = useState({ godownId: "", qty: 0, thaan: 0, rate: 0 });
   const [initialStocks, setInitialStocks] = useState<
-    { godownId: string; qty: number; thaan: number }[]
+    { godownId: string; qty: number; thaan: number, rate: number }[]
   >([]);
 
   const { data: godowns } = useGodowns(branchId);
@@ -160,14 +158,15 @@ export function ProductDialog({
   };
 
   const addStockEntry = () => {
-    const { godownId, qty, thaan } = stockEntry;
-    if (!godownId || (qty <= 0 && thaan <= 0)) {
-      toast.error("Valid godown, qty or thaan required.");
+    const { godownId, qty, thaan, rate } = stockEntry;
+
+    if (!godownId || (qty <= 0 && thaan <= 0) || rate <= 0) {
+      toast.error("Valid godown, qty, rate or thaan required.");
       return;
     }
 
     setInitialStocks((prev) => [...prev, stockEntry]);
-    setStockEntry({ godownId: "", qty: 0, thaan: 0 });
+    setStockEntry({ godownId: "", qty: 0, thaan: 0, rate: 0 });
   };
 
   const removeStockEntry = (index: number) => {
@@ -276,7 +275,9 @@ export function ProductDialog({
 
               {enableStock && (
                 <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                  {/* Input Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 items-end">
+                    {/* Godown */}
                     <div className="sm:col-span-2 space-y-1">
                       <Label htmlFor="godown">Godown</Label>
                       <Select
@@ -296,6 +297,7 @@ export function ProductDialog({
                       </Select>
                     </div>
 
+                    {/* Qty */}
                     <div className="space-y-1">
                       <Label htmlFor="qty">Qty</Label>
                       <Input
@@ -309,6 +311,7 @@ export function ProductDialog({
                       />
                     </div>
 
+                    {/* Thaan */}
                     <div className="space-y-1">
                       <Label htmlFor="thaan">Thaan</Label>
                       <Input
@@ -321,31 +324,62 @@ export function ProductDialog({
                         placeholder="0"
                       />
                     </div>
+
+                    {/* Rate */}
+                    <div className="space-y-1">
+                      <Label htmlFor="rate">Rate</Label>
+                      <Input
+                        id="rate"
+                        type="number"
+                        value={stockEntry.rate}
+                        onChange={(e) =>
+                          setStockEntry({ ...stockEntry, rate: parseFloat(e.target.value) || 0 })
+                        }
+                        placeholder="0"
+                      />
+                    </div>
+
+                    {/* Total */}
+                    <div className="space-y-1">
+                      <Label>Total</Label>
+                      <Input
+                        value={(stockEntry.qty * stockEntry.rate).toFixed(2)}
+                        readOnly
+                        disabled
+                      />
+                    </div>
                   </div>
 
+                  {/* Add Entry Button */}
                   <Button type="button" className="w-full" onClick={addStockEntry}>
                     Add Stock Entry
                   </Button>
 
+                  {/* Show Stock Entries List */}
                   {initialStocks.length > 0 && (
                     <div className="space-y-2">
-                      {initialStocks.map((entry, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between px-4 rounded-md bg-background border"
-                        >
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-medium">
-                              {godowns?.find((g) => g.id === entry.godownId)?.name ||
-                                "Unknown Godown"}
-                            </span>{" "}
-                            – Qty: {entry.qty}, Thaan: {entry.thaan}
+                      {initialStocks.map((entry, idx) => {
+                        const total = (entry.qty * entry.rate).toFixed(2);
+                        const godownName = godowns?.find((g) => g.id === entry.godownId)?.name || "Unknown";
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between px-4 py-2 rounded-md bg-background border text-sm"
+                          >
+                            <div className="text-muted-foreground">
+                              <span className="font-medium">{godownName}</span> – Qty: {entry.qty}, Thaan:{" "}
+                              {entry.thaan}, Rate: {entry.rate}, Total: {total}
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeStockEntry(idx)}
+                            >
+                              ✕
+                            </Button>
                           </div>
-                          <Button size="icon" variant="ghost" onClick={() => removeStockEntry(idx)}>
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -361,8 +395,8 @@ export function ProductDialog({
                 ? "Saving..."
                 : "Save Changes"
               : isCreating
-              ? "Adding..."
-              : "Add Product"}
+                ? "Adding..."
+                : "Add Product"}
           </Button>
         </DialogFooter>
       </DialogContent>

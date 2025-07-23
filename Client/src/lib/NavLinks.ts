@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   Package,
   PieChart,
+  Receipt,
   Scale,
   ScrollText,
   User,
@@ -61,5 +62,10 @@ export const navLinks: Navlink[] = [
     label: "Accounts",
     icon: UsersRound,
     url: "/dashboard/account",
+  },
+  {
+    label: "Invoices",
+    icon: Receipt,
+    url: "/dashboard/invoice",
   },
 ];

@@ -14,6 +14,10 @@ export interface ProductEntry {
   date: string;
   runningQty: number;
   runningThaan: number;
+  previousQty: number;
+  previousThaan: number;
+  finalQty: number;
+  finalThaan: number;
   product: {
     id: string;
     name: string;
