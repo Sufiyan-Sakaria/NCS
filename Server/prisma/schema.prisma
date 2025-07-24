@@ -481,11 +481,13 @@ enum LedgerType {
   Drawings
   Reserves
   Sales
+  SalesReturns
   InterestIncome
   CommissionReceived
   RentalIncome
   OtherIncome
   Purchase
+  PurchaseReturns
   Wages
   Rent
   Electricity
@@ -629,7 +631,7 @@ model InvoiceItem {
   godownId  String
   rate      Float
   discount  Float    @default(0)
-  taxAmount Float   @default(0)
+  taxAmount Float    @default(0)
   amount    Float
   createdBy String?
   updatedBy String?

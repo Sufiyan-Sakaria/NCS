@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandInput,
@@ -13,22 +17,34 @@ import {
 } from "@/components/ui/command";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGodowns } from "@/hooks/UseGodown";
-import { GodownDialog } from "./GodownDialog";
+import { LedgerDialog } from "./LedgerDialog";
+import { useLedgers } from "@/hooks/UseAccount";
+import { LedgerType } from "@/types/Ledger";
 
 interface Props {
   value: string;
-  onChange: (godownId: string) => void;
+  onChange: (ledgerId: string) => void;
   branchId: string;
-  showAllOption?: boolean; // Optional prop to show "All Godowns" option
+  filterType?: LedgerType[];
+  className?: string;
+  buttonClassName?: string;
+  popoverWidth?: string;
 }
 
-export const GodownSelectWithDialog = ({ value, onChange, branchId, showAllOption }: Props) => {
+export const LedgerSelectWithDialog = ({
+  value,
+  onChange,
+  branchId,
+  filterType,
+  className,
+  buttonClassName,
+  popoverWidth,
+}: Props) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: godowns, refetch } = useGodowns(branchId);
+  const { data: ledgers, refetch } = useLedgers(branchId);
 
-  const selectedGodown = godowns?.find((p) => p.id === value);
+  const selectedLedger = ledgers?.find((l) => l.id === value);
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -36,61 +52,49 @@ export const GodownSelectWithDialog = ({ value, onChange, branchId, showAllOptio
     }
   }, [dialogOpen, refetch]);
 
+  const filteredLedgers = filterType
+    ? ledgers?.filter((l) => filterType.includes(l.type as LedgerType))
+    : ledgers;
+
   return (
-    <>
+    <div className={cn("relative", className)}>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             className={cn(
-              "w-full h-8 justify-between",
-              value === "" ? "text-muted-foreground" : "",
+              "w-full h-8 justify-between text-sm",
+              !value && "text-muted-foreground",
+              buttonClassName
             )}
           >
-            {value === "" ? "All Godowns" : selectedGodown ? selectedGodown.name : "Select Godown"}
+            {selectedLedger ? selectedLedger.name : "Select Ledger"}
             <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0">
+        <PopoverContent className={cn("p-0", popoverWidth ?? "w-[300px]")}>
           <Command>
-            <CommandInput placeholder="Search godown..." />
+            <CommandInput placeholder="Search ledger..." />
             <CommandList>
-              <CommandEmpty>No godown found.</CommandEmpty>
-              <CommandGroup heading="Godowns">
-                {
-                  showAllOption && (
-                    <CommandItem
-                      key="all-godowns"
-                      value="All Godowns"
-                      onSelect={() => {
-                        onChange("");
-                        setPopoverOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn("mr-2 h-4 w-4", value === "" ? "opacity-100" : "opacity-0")}
-                      />
-                      All Godowns
-                    </CommandItem>
-                  )
-                }
-                {godowns?.map((godown) => (
+              <CommandEmpty>No ledger found.</CommandEmpty>
+              <CommandGroup heading="Ledgers">
+                {filteredLedgers?.map((ledger) => (
                   <CommandItem
-                    key={godown.id}
-                    value={godown.name}
+                    key={ledger.id}
+                    value={ledger.name}
                     onSelect={() => {
-                      onChange(godown.id);
+                      onChange(ledger.id);
                       setPopoverOpen(false);
                     }}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === godown.id ? "opacity-100" : "opacity-0",
+                        value === ledger.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    {godown.name}
+                    <div>{ledger.name}</div>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -103,7 +107,7 @@ export const GodownSelectWithDialog = ({ value, onChange, branchId, showAllOptio
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add New Godown
+                  Add New Ledger
                 </CommandItem>
               </CommandGroup>
             </CommandList>
@@ -111,14 +115,12 @@ export const GodownSelectWithDialog = ({ value, onChange, branchId, showAllOptio
         </PopoverContent>
       </Popover>
 
-      <GodownDialog
+      <LedgerDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         branchId={branchId}
-        onSuccess={() => {
-          setDialogOpen(false);
-        }}
+        onSuccess={() => setDialogOpen(false)}
       />
-    </>
+    </div>
   );
 };

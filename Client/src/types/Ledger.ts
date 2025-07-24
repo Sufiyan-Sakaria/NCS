@@ -18,3 +18,38 @@ export interface Ledger {
   createdAt: string;
   updatedAt: string;
 }
+
+export type LedgerType =
+  | "Cash"
+  | "Bank"
+  | "AccountsReceivable"
+  | "Inventory"
+  | "FixedAssets"
+  | "PrepaidExpenses"
+  | "AdvanceToSuppliers"
+  | "AccountsPayable"
+  | "AccruedExpenses"
+  | "LoansPayable"
+  | "GSTPayable"
+  | "TDSPayable"
+  | "AdvanceFromCustomers"
+  | "OwnerCapital"
+  | "RetainedEarnings"
+  | "Drawings"
+  | "Reserves"
+  | "Sales"
+  | "SalesReturns"
+  | "InterestIncome"
+  | "CommissionReceived"
+  | "RentalIncome"
+  | "OtherIncome"
+  | "Purchase"
+  | "PurchaseReturns"
+  | "Wages"
+  | "Rent"
+  | "Electricity"
+  | "Telephone"
+  | "Transportation"
+  | "RepairsAndMaintenance"
+  | "Depreciation"
+  | "MiscellaneousExpenses";
