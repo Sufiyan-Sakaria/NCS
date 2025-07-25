@@ -115,6 +115,7 @@ export const getProductsByBranch = async (
         brand: true,
         category: true,
         unit: true,
+        ProductStock: true,
         createdByUser: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "desc" },

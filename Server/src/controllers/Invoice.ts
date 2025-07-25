@@ -64,6 +64,51 @@ export const getInvoiceById = async (
   }
 };
 
+// Get Invoice No.
+export const getInvoiceNumber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { branchId } = req.params;
+  const { type } = req.query;
+
+  try {
+    if (!branchId) {
+      return next(new AppError("Branch ID is required", 400));
+    }
+
+    if (!type || typeof type !== "string" || !(type in InvoiceType)) {
+      return next(new AppError("Invalid or missing invoice type", 400));
+    }
+
+    const invoiceType = type as InvoiceType;
+
+    const invoiceBook = await prisma.invoiceBook.findFirst({
+      where: { branchId, type: invoiceType },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!invoiceBook) {
+      return next(new AppError("No invoice book found for this branch", 404));
+    }
+
+    const lastInvoice = await prisma.invoice.findFirst({
+      where: { invoiceBookId: invoiceBook.id, type: invoiceType },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const newInvoiceNumber = lastInvoice
+      ? parseInt(lastInvoice.invoiceNumber) + 1
+      : 1;
+
+    res.status(200).json({ success: true, data: newInvoiceNumber });
+  } catch (error) {
+    console.error(error);
+    next(new AppError("Failed to fetch invoice number", 500));
+  }
+};
+
 // Create invoice
 export const createInvoice = async (
   req: Request,

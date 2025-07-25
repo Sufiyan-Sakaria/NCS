@@ -63,6 +63,13 @@ export const getInvoiceById = async (id: string): Promise<Invoice> => {
   return response.data.data;
 };
 
+export const getInvoiceNumber = async (branchId: string, type: InvoiceType): Promise<string> => {
+  const response: AxiosResponse<{ data: string }> = await api.get(`/invoice/number/${branchId}`, {
+    params: { type },
+  });
+  return response.data.data;
+};
+
 export const createInvoice = async (payload: CreateInvoicePayload): Promise<Invoice> => {
   const response: AxiosResponse<{ data: Invoice }> = await api.post(
     `/invoice/${payload.branchId}`,

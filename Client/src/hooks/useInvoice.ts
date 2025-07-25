@@ -3,10 +3,13 @@ import {
   CreateInvoicePayload,
   deleteInvoice,
   DeleteInvoicePayload,
+  getInvoiceById,
+  getInvoiceNumber,
   getInvoicesByBranch,
   updateInvoice,
   UpdateInvoicePayload,
 } from "@/services/invoice";
+import { InvoiceType } from "@/types/Invoice";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // ==================== GET ====================
@@ -16,6 +19,24 @@ export const useInvoices = (branchId: string | null) =>
     queryKey: ["invoices", branchId],
     queryFn: () => getInvoicesByBranch(branchId!),
     enabled: !!branchId,
+    staleTime: 10 * 60 * 1000, // 10 mins
+    refetchInterval: 9 * 60 * 1000, // 9 mins
+  });
+
+export const useInvoiceById = (id: string | null) =>
+  useQuery({
+    queryKey: ["invoice", id],
+    queryFn: () => getInvoiceById(id!),
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000, // 10 mins
+    refetchInterval: 9 * 60 * 1000, // 9 mins
+  });
+
+export const useInvoiceNumber = (branchId: string, type: InvoiceType) =>
+  useQuery({
+    queryKey: ["invoiceNumber", branchId, type],
+    queryFn: () => getInvoiceNumber(branchId, type),
+    enabled: !!branchId && !!type,
     staleTime: 10 * 60 * 1000, // 10 mins
     refetchInterval: 9 * 60 * 1000, // 9 mins
   });

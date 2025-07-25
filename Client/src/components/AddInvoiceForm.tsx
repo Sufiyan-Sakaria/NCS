@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
-import axios from "axios";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -25,9 +24,11 @@ import { Label } from "./ui/label";
 import { LedgerSelectWithDialog } from "./LedgerSelectWithDialog";
 import { LedgerType } from "@/types/Ledger";
 import { useLedgers } from "@/hooks/UseAccount";
+import { useCreateinvoice, useInvoiceNumber } from "@/hooks/useInvoice";
+import { CreateInvoicePayload } from "@/services/invoice";
+import { toast } from "sonner";
 import { InvoiceTypeSelect } from "./InvoiceTypeSelect";
 
-// Item Type
 interface Item {
   product: Product;
   godown: Godown;
@@ -49,9 +50,10 @@ interface InvoiceFormData {
 }
 
 export default function AddInvoiceForm({ branchId }: { branchId: string }) {
+
   const form = useForm<InvoiceFormData>({
     defaultValues: {
-      invoiceNumber: 1,
+      invoiceNumber: 0,
       date: new Date(),
       ledgerId: "",
       invoiceLedgerId: "",
@@ -59,8 +61,17 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
       discount: 0,
       cartage: 0,
       grandTotal: 0,
+      type: "SALE",
     },
   });
+
+  const invoiceType = form.watch("type");
+
+  const { data: products = [] } = useProducts(branchId);
+  const { data: godowns = [] } = useGodowns(branchId);
+  const { data: ledgers = [] } = useLedgers(branchId);
+  const { data: invoiceNumberData, isSuccess } = useInvoiceNumber(branchId, invoiceType);
+  const createInvoiceMutation = useCreateinvoice(branchId);
 
   const itemForm = useForm({
     defaultValues: {
@@ -75,12 +86,14 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
 
   const [items, setItems] = useState<Item[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const { data: products = [] } = useProducts(branchId);
-  const { data: godowns = [] } = useGodowns(branchId);
-  const { data: ledgers = [] } = useLedgers(branchId);
-
   const productRef = useRef<HTMLButtonElement>(null);
+
+  // Set invoice number when fetched
+  useEffect(() => {
+    if (isSuccess && invoiceNumberData) {
+      form.setValue("invoiceNumber", parseInt(invoiceNumberData));
+    }
+  }, [invoiceNumberData, isSuccess, form]);
 
   const totalAmount = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
   const grandTotal =
@@ -107,21 +120,37 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
   };
 
   const handleSubmit = async (data: InvoiceFormData) => {
+    if (items.length === 0) {
+      alert("At least one item is required");
+      return;
+    }
+
     setIsSubmitting(true);
+
+    const payload: CreateInvoicePayload = {
+      ...data,
+      date: data.date.toISOString(),
+      items: items.map((item) => ({
+        productId: item.product.id,
+        godownId: item.godown.id,
+        quantity: item.quantity,
+        rate: item.rate,
+        thaan: item.thaan,
+        amount: item.quantity * item.rate,
+      })),
+      totalAmount,
+      grandTotal,
+      branchId,
+    };
+
     try {
-      await axios.post(`/api/invoice/${branchId}`, {
-        ...data,
-        date: data.date.toISOString(),
-        totalAmount,
-        grandTotal,
-        items,
-      });
-      alert("Invoice created!");
-    } catch (err) {
-      const errorMessage = (err as { response?: { data?: { message?: string } } }).response?.data
-        ?.message;
-      console.error(err);
-      alert(errorMessage ?? "Failed to create invoice");
+      await createInvoiceMutation.mutateAsync(payload);
+      toast.success("Invoice created successfully!");
+      form.reset(); // reset form
+      setItems([]); // cleat items
+    } catch (error) {
+      toast.error("Error creating invoice: " + error);
+      alert("Failed to create invoice. See console for details.");
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +163,27 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
       </CardHeader>
       <CardContent className="p-0">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-2">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            onKeyDown={(e) => {
+              const tag = e.target as HTMLElement;
+
+              const isInsideItemForm = tag.closest("#add-item-form");
+              const isTextArea = tag.tagName === "TEXTAREA";
+              const isComboOrBtn =
+                tag.getAttribute("role") === "combobox" ||
+                tag.getAttribute("role") === "button";
+
+              if (e.key === "Enter") {
+                if (isTextArea || isComboOrBtn) return; // Let Enter work as usual
+                if (isInsideItemForm) {
+                  e.preventDefault();
+                  onAddItem();
+                }
+              }
+            }}
+            className="space-y-2"
+          >
             <div className="grid grid-cols-4 gap-4">
               <FormField
                 control={form.control}
@@ -143,7 +192,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                   <FormItem>
                     <FormLabel>Invoice No.</FormLabel>
                     <FormControl>
-                      <Input className="h-8" type="number" {...field} required />
+                      <Input className="h-8" type="number" {...field} required disabled readOnly />
                     </FormControl>
                   </FormItem>
                 )}
@@ -188,7 +237,6 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                   </FormItem>
                 )}
               />
-
 
               <FormField
                 control={form.control}
@@ -237,8 +285,10 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow className="bg-muted">
-                        <TableHead className="text-center">Product ID</TableHead>
+                        <TableHead className="text-center">Sr No.</TableHead>
                         <TableHead className="text-center">Product Name</TableHead>
+                        <TableHead className="text-center">Brand</TableHead>
+                        <TableHead className="text-center">Unit</TableHead>
                         <TableHead className="text-center">Godown</TableHead>
                         <TableHead className="text-center">Qty</TableHead>
                         <TableHead className="text-center">Thaan</TableHead>
@@ -250,16 +300,21 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                     <TableBody>
                       {items.map((item, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="text-center p-0">{item.product.hsn}</TableCell>
-                          <TableCell className="text-center p-0">{item.product.name}</TableCell>
-                          <TableCell className="text-center p-0">{item.godown.name}</TableCell>
-                          <TableCell className="text-center p-0">{item.quantity}</TableCell>
-                          <TableCell className="text-center p-0">{item.thaan}</TableCell>
-                          <TableCell className="text-center p-0">{item.rate}</TableCell>
-                          <TableCell className="text-center p-0 font-mono text-sm">
-                            {(item.quantity * item.rate).toFixed(2)}
+                          <TableCell className="text-center p-0 border-r border-b">{idx + 1}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.product.name}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.product.brand.name}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.product.unit.name}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.godown.name}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.quantity}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.thaan}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">{item.rate}</TableCell>
+                          <TableCell className="text-center p-0 font-mono text-sm border-b border-r">
+                            {(item.quantity * item.rate).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </TableCell>
-                          <TableCell className="text-center p-0">
+                          <TableCell className="text-center p-0 border-b">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -291,7 +346,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
 
               {/* Add Item Form */}
               <Form {...itemForm}>
-                <div className="grid grid-cols-[4fr_3fr_1fr_1fr_1fr_1.5fr_1.5fr] gap-2 items-end mt-2">
+                <div className="grid grid-cols-[4fr_3fr_1fr_1fr_1fr_1.5fr_1.5fr] gap-2 items-end mt-2" id="add-item-form">
                   <FormField
                     control={itemForm.control}
                     name="productId"
@@ -303,8 +358,11 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                             value={field.value}
                             onChange={(id) => {
                               field.onChange(id);
+
                               const selected = products.find((p) => p.id === id);
-                              itemForm.setValue("rate", selected?.saleRate ?? 0);
+                              if (invoiceType === "SALE" || invoiceType === "SALE_RETURN") {
+                                itemForm.setValue("rate", selected?.saleRate ?? 0);
+                              }
                             }}
                             branchId={branchId}
                             ref={productRef}
@@ -335,27 +393,50 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                   <FormField
                     control={itemForm.control}
                     name="quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Qty</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            className="h-8"
-                            min={0}
-                            {...field}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              if (val >= 0) {
-                                field.onChange(val);
-                              } else {
-                                field.onChange(0); // Reset to 0 if negative
-                              }
-                            }}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const productId = itemForm.watch("productId");
+                      const godownId = itemForm.watch("godownId");
+
+                      const selectedProduct = products.find((p) => p.id === productId);
+                      const stockQty =
+                        selectedProduct?.ProductStock.find((stock) => stock.godownId === godownId)?.qty ?? 0;
+                      const totalQty = selectedProduct?.qty ?? 0;
+
+                      // Choose the qty to display
+                      const displayQty = productId ? (godownId ? stockQty : totalQty) : null;
+
+                      // Choose color class
+                      const qtyColor =
+                        displayQty === null
+                          ? "text-muted-foreground"
+                          : displayQty === 0
+                            ? "text-red-500"
+                            : displayQty <= 50
+                              ? "text-yellow-600"
+                              : "text-green-600";
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Qty
+                            <span className={cn(qtyColor)}>
+                              {displayQty !== null ? `(${displayQty})` : ""}
+                            </span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              className="h-8"
+                              min={0}
+                              {...field}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                field.onChange(val >= 0 ? val : 0);
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
@@ -471,13 +552,12 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                         </FormControl>
                         {selectedLedger && (
                           <span className="text-muted-foreground ml-2 whitespace-nowrap">
-                            Balance: {selectedLedger.balance.toLocaleString("en-US", {
+                            Balance:{" "}
+                            {selectedLedger.balance.toLocaleString("en-US", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}{" "}
-                            {["AccountsReceivable"].includes(selectedLedger.type)
-                              ? "Dr"
-                              : "Cr"}
+                            {["AccountsReceivable"].includes(selectedLedger.type) ? "Dr" : "Cr"}
                           </span>
                         )}
                       </FormItem>
@@ -492,7 +572,11 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                     <FormItem className="flex">
                       <FormLabel>Narration</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Optional invoice note" className="w-[82%]" />
+                        <Textarea
+                          {...field}
+                          placeholder="Optional invoice note"
+                          className="w-[82%] h-16 resize-none"
+                        />
                       </FormControl>
                     </FormItem>
                   )}

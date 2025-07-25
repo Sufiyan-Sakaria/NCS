@@ -3,6 +3,7 @@ import {
   createInvoice,
   deleteInvoice,
   getInvoiceById,
+  getInvoiceNumber,
   getInvoicesByBranch,
   updateInvoice,
 } from "../controllers/Invoice";
@@ -14,6 +15,9 @@ router.get("/:branchId", getInvoicesByBranch);
 
 // Route to get a single invoice by ID
 router.get("/:id", getInvoiceById);
+
+// Route to get the next invoice number for a branch and type
+router.get("/number/:branchId", getInvoiceNumber);
 
 // Route to create a new invoice
 router.post("/:branchId", createInvoice);
