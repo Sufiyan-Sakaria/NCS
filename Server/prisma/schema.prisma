@@ -454,7 +454,11 @@ model Ledger {
   Invoice       Invoice[] @relation("LedgerInvoice")
   InvoiceLedger Invoice[] @relation("LedgerInvoiceLedger")
 
-  VoucherEntry VoucherEntry[]
+  // Relation to main affected ledger in VoucherEntry
+  entries VoucherEntry[] @relation("EntryLedger")
+
+  // Relation to counterpart ledger in VoucherEntry
+  voucherEntries VoucherEntry[] @relation("VoucherLedger")
 
   @@unique([name, branchId])
   @@index([accountGroupId])
@@ -714,19 +718,21 @@ model Voucher {
 }
 
 model VoucherEntry {
-  id        String    @id @default(uuid())
-  voucher   Voucher   @relation(fields: [voucherId], references: [id])
-  voucherId String
-  ledger    Ledger    @relation(fields: [ledgerId], references: [id])
-  ledgerId  String
-  type      EntryType
-  amount    Float
-  narration String?
-  createdBy String?
-  updatedBy String?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now())
+  id              String    @id @default(uuid())
+  voucher         Voucher   @relation(fields: [voucherId], references: [id])
+  voucherId       String
+  ledger          Ledger    @relation("EntryLedger", fields: [ledgerId], references: [id])
+  ledgerId        String
+  voucherLedger   Ledger    @relation("VoucherLedger", fields: [voucherLedgerId], references: [id])
+  voucherLedgerId String
+  type            EntryType
+  amount          Float
+  narration       String?
+  createdBy       String?
+  updatedBy       String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
 
   createdByUser User? @relation("VoucherEntryCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("VoucherEntryUpdatedBy", fields: [updatedBy], references: [id])

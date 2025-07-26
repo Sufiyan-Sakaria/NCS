@@ -14,6 +14,7 @@ import Product from "./Product";
 import ProductLedger from "./ProductLedger";
 import Account from "./Account";
 import Invoice from "./Invoice";
+import Voucher from "./Voucher";
 
 router.get("/", (req, res) => {
   res.send("working 😊");
@@ -54,5 +55,8 @@ router.use("/account", protect, Account);
 
 // Invoice Routes
 router.use("/invoice", protect, Invoice);
+
+// Voucher Routes
+router.use("/voucher", protect, Voucher);
 
 export default router;
