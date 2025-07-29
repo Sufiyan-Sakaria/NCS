@@ -99,12 +99,6 @@ export const createVoucher = async (
           voucherLedger.accountGroup.nature
         );
 
-        console.log(
-          `Entry ${i + 1}: ${ledger.name} (${ledger.accountGroup.nature}) -> ${
-            voucherLedger.name
-          } (${voucherLedger.accountGroup.nature}), Entry Type: ${entryType}`
-        );
-
         enrichedEntries.push({
           ...entry,
           type: entryType,
@@ -202,8 +196,6 @@ export const createVoucher = async (
       // ✅ Step 11: Update ledger balances (PROPER ACCOUNTING LOGIC)
       const affectedGroupIds = new Set<string>();
 
-      console.log("Updating Ledger Balances:");
-
       for (const entry of voucher.entries) {
         const [mainLedger, voucherLedger] = await Promise.all([
           tx.ledger.findUnique({
@@ -217,10 +209,6 @@ export const createVoucher = async (
         ]);
 
         const amount = Number(entry.amount);
-
-        console.log(
-          `Before: ${mainLedger?.name} = ${mainLedger?.balance}, ${voucherLedger?.name} = ${voucherLedger?.balance}`
-        );
 
         // Update main ledger balance based on account nature and entry type
         const mainAccountNature = mainLedger?.accountGroup?.nature;
@@ -321,13 +309,6 @@ export const createVoucher = async (
           }),
         ]);
 
-        console.log(
-          `After: ${updatedMainLedger?.name} = ${updatedMainLedger?.balance}, ${updatedVoucherLedger?.name} = ${updatedVoucherLedger?.balance}`
-        );
-        console.log(
-          `Entry: ${mainLedger?.name} ${entry.type} ${amount}, ${voucherLedger?.name} ${oppositeType} ${amount}`
-        );
-
         if (mainLedger?.accountGroupId) {
           affectedGroupIds.add(mainLedger.accountGroupId);
         }
@@ -356,10 +337,6 @@ function determineEntryType(
   mainAccountNature: string,
   voucherAccountNature: string
 ): string {
-  console.log(
-    `Determining entry type for: ${voucherType}, Main: ${mainAccountNature}, Voucher: ${voucherAccountNature}`
-  );
-
   switch (voucherType) {
     case VoucherType.PAYMENT:
       // Payment means money is going out

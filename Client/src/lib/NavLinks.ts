@@ -7,6 +7,7 @@ import {
   Receipt,
   Scale,
   ScrollText,
+  Ticket,
   User,
   UsersRound,
   Warehouse,
@@ -67,5 +68,10 @@ export const navLinks: Navlink[] = [
     label: "Invoices",
     icon: Receipt,
     url: "/dashboard/invoice",
+  },
+  {
+    label: "Vouchers",
+    icon: Ticket,
+    url: "/dashboard/voucher",
   },
 ];

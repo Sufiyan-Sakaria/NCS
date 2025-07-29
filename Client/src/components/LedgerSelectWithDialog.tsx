@@ -94,7 +94,7 @@ export const LedgerSelectWithDialog = ({
                         value === ledger.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div>{ledger.name}</div>
+                    <div className="flex justify-between"><span>{ledger.name}</span><span className="text-muted-foreground">{ledger.balance}</span></div>
                   </CommandItem>
                 ))}
               </CommandGroup>
