@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-} from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,10 +20,22 @@ import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Ledger } from "@/types/Ledger";
 import { useLedgers } from "@/hooks/UseAccount";
 import { LedgerSelectWithDialog } from "./LedgerSelectWithDialog";
+import { voucherTypeLedgerMap } from "@/lib/LedgerMap";
+import { useCreateVoucher, useVoucherNumber } from "@/hooks/UseVoucher";
+import { VoucherType } from "@/types/Voucher";
+import { toast } from "sonner";
+import { CreateVoucherPayload } from "@/services/voucher";
 
 const voucherTypes = ["PAYMENT", "RECEIPT", "JOURNAL", "CONTRA"];
 
@@ -31,24 +43,24 @@ interface VoucherEntry {
   ledger: Ledger;
   voucherLedger: Ledger;
   amount: number;
-  narration: string;
+  narration?: string;
 }
 
 interface VoucherFormData {
   voucherNumber: number;
   date: Date;
-  type: string;
-  reference: string;
-  narration: string;
+  type: VoucherType;
+  reference?: string;
+  narration?: string;
   totalAmount: number;
 }
 
 export default function VoucherForm({ branchId }: { branchId: string }) {
   const form = useForm<VoucherFormData>({
     defaultValues: {
-      voucherNumber: 1001,
+      voucherNumber: 0,
       date: new Date(),
-      type: "PAYMENT",
+      type: VoucherType.PAYMENT,
       reference: "",
       narration: "",
       totalAmount: 0,
@@ -70,7 +82,20 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
 
   const totalAmount = entries.reduce((acc, entry) => acc + entry.amount, 0);
 
+  const watchType = form.watch("type") as keyof typeof voucherTypeLedgerMap;
+
+  const filteredLedgerTypes = voucherTypeLedgerMap[watchType]?.ledger ?? [];
+  const filteredVoucherLedgerTypes = voucherTypeLedgerMap[watchType]?.voucherLedger ?? [];
+
   const { data: ledgers } = useLedgers(branchId);
+  const { data: voucherNumberData, isSuccess } = useVoucherNumber(branchId, watchType);
+  const createVoucherMutation = useCreateVoucher(branchId);
+  
+  useEffect(() => {
+      if (isSuccess && voucherNumberData) {
+        form.setValue("voucherNumber", parseInt(voucherNumberData));
+      }
+    }, [voucherNumberData, isSuccess, form]);
 
   const onAddEntry = () => {
     ledgerRef.current?.focus();
@@ -100,28 +125,28 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
 
     setIsSubmitting(true);
 
-    const payload = {
+    const payload: Omit<CreateVoucherPayload, "voucherNumber"> = {
       ...data,
       date: data.date.toISOString(),
+      totalAmount,
       entries: entries.map((entry) => ({
         ledgerId: entry.ledger.id,
         voucherLedgerId: entry.voucherLedger.id,
         amount: entry.amount,
         narration: entry.narration,
       })),
-      totalAmount,
       branchId,
     };
 
     try {
       console.log("Voucher payload:", payload);
-      // await createVoucherMutation.mutateAsync(payload);
-      alert("Voucher created successfully!");
+      await createVoucherMutation.mutateAsync(payload);
+      toast.success("Voucher created successfully!");
       form.reset();
       setEntries([]);
     } catch (error) {
       console.error("Error creating voucher:", error);
-      alert("Failed to create voucher. See console for details.");
+      toast.error("Failed to create voucher. See console for details.");
     } finally {
       setIsSubmitting(false);
     }
@@ -141,8 +166,7 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
               const isInsideEntryForm = tag.closest("#add-entry-form");
               const isTextArea = tag.tagName === "TEXTAREA";
               const isComboOrBtn =
-                tag.getAttribute("role") === "combobox" ||
-                tag.getAttribute("role") === "button";
+                tag.getAttribute("role") === "combobox" || tag.getAttribute("role") === "button";
 
               if (e.key === "Enter") {
                 if (isTextArea || isComboOrBtn) return;
@@ -204,9 +228,9 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={entries.length > 0}>
                       <FormControl>
-                        <SelectTrigger className="h-8 w-full" >
+                        <SelectTrigger className="h-8 w-full">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
@@ -254,17 +278,23 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                     <TableBody>
                       {entries.map((entry, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="text-center p-2 border-r border-b">{idx + 1}</TableCell>
+                          <TableCell className="text-center p-2 border-r border-b">
+                            {idx + 1}
+                          </TableCell>
                           <TableCell className="text-center p-2 border-r border-b">
                             <div>
                               <div className="font-medium">{entry.ledger.name}</div>
-                              <div className="text-xs text-muted-foreground">{entry.ledger.type}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {entry.ledger.type}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center p-2 border-r border-b">
                             <div>
                               <div className="font-medium">{entry.voucherLedger.name}</div>
-                              <div className="text-xs text-muted-foreground">{entry.voucherLedger.type}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {entry.voucherLedger.type}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center p-2 font-mono text-sm border-b border-r">
@@ -308,7 +338,10 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
 
               {/* Add Entry Form */}
               <Form {...entryForm}>
-                <div className="grid grid-cols-[3fr_3fr_2fr_3fr_1fr] gap-2 items-end mt-2" id="add-entry-form">
+                <div
+                  className="grid grid-cols-[3fr_3fr_2fr_3fr_1fr] gap-2 items-end mt-2"
+                  id="add-entry-form"
+                >
                   <FormField
                     control={entryForm.control}
                     name="ledgerId"
@@ -320,8 +353,8 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                             value={field.value}
                             onChange={field.onChange}
                             branchId={branchId}
-                            buttonClassName="w-108 h-8 text-sm"
-                            popoverWidth="w-96"
+                            buttonClassName="w-full h-8 text-sm"
+                            filterType={filteredLedgerTypes}
                           />
                         </FormControl>
                       </FormItem>
@@ -339,8 +372,8 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                             value={field.value}
                             onChange={field.onChange}
                             branchId={branchId}
-                            buttonClassName="w-108 h-8 text-sm"
-                            popoverWidth="w-96"
+                            buttonClassName="w-full h-8 text-sm"
+                            filterType={filteredVoucherLedgerTypes}
                           />
                         </FormControl>
                       </FormItem>
@@ -355,14 +388,17 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                         <FormLabel>Amount</FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
+                            type="text"
                             className="h-8"
-                            min={0}
-                            step="0.01"
-                            {...field}
+                            value={field.value?.toLocaleString("en-PK") ?? ""}
                             onChange={(e) => {
-                              const val = Number(e.target.value);
-                              field.onChange(val >= 0 ? val : 0);
+                              const raw = e.target.value.replace(/,/g, ""); // remove commas
+                              const num = Number(raw);
+                              if (!isNaN(num)) {
+                                field.onChange(num);
+                              } else {
+                                field.onChange(0);
+                              }
                             }}
                           />
                         </FormControl>
@@ -377,11 +413,7 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                       <FormItem>
                         <FormLabel>Entry Narration</FormLabel>
                         <FormControl>
-                          <Input
-                            className="h-8"
-                            placeholder="Optional note..."
-                            {...field}
-                          />
+                          <Input className="h-8" placeholder="Optional note..." {...field} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -434,7 +466,7 @@ export default function VoucherForm({ branchId }: { branchId: string }) {
                   />
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {entries.length} entr{entries.length === 1 ? 'y' : 'ies'} added
+                  {entries.length} entr{entries.length === 1 ? "y" : "ies"} added
                 </div>
               </div>
             </div>

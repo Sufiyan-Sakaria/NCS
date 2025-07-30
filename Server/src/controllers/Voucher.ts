@@ -114,6 +114,7 @@ export const createVoucher = async (
           date: formattedDate,
           type,
           voucherBookId: voucherBook.id,
+          reference,
           narration,
           totalAmount,
           createdBy: userId,
@@ -157,7 +158,6 @@ export const createVoucher = async (
             journalBookId: journalBook.id,
             date: formattedDate,
             narration: entry.narration ?? narration,
-            reference,
             ledgerId: entry.ledgerId,
             amount: entry.amount,
             type: EntryType.DEBIT,
@@ -168,7 +168,6 @@ export const createVoucher = async (
             journalBookId: journalBook.id,
             date: formattedDate,
             narration: entry.narration ?? narration,
-            reference,
             ledgerId: entry.ledgerId,
             amount: entry.amount,
             type: EntryType.CREDIT,
@@ -183,7 +182,6 @@ export const createVoucher = async (
           journalBookId: journalBook.id,
           date: formattedDate,
           narration: entry.narration ?? narration,
-          reference,
           ledgerId: entry.voucherLedgerId,
           amount: entry.amount,
           type: oppositeType,
@@ -448,6 +446,51 @@ function determineEntryType(
     400
   );
 }
+
+// Get Voucher No.
+export const getVoucherNumber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { branchId } = req.params;
+  const { type } = req.query;
+
+  try {
+    if (!branchId) {
+      return next(new AppError("Branch ID is required", 400));
+    }
+
+    if (!type || typeof type !== "string" || !(type in VoucherType)) {
+      return next(new AppError("Invalid or missing voucher type", 400));
+    }
+
+    const voucherType = type as VoucherType;
+
+    const voucherBook = await prisma.voucherBook.findFirst({
+      where: { branchId, type: voucherType },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!voucherBook) {
+      return next(new AppError("No voucher book found for this branch", 404));
+    }
+
+    const lastVoucher = await prisma.voucher.findFirst({
+      where: { voucherBookId: voucherBook.id, type: voucherType },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const newVoucherNumber = lastVoucher
+      ? parseInt(lastVoucher.voucherNumber) + 1
+      : 1;
+
+    res.status(200).json({ success: true, data: newVoucherNumber });
+  } catch (error) {
+    console.error(error);
+    next(new AppError("Failed to fetch voucher number", 500));
+  }
+};
 
 export const getVouchersByBranch = async (
   req: Request,

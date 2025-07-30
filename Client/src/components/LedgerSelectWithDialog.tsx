@@ -69,11 +69,16 @@ export const LedgerSelectWithDialog = ({
               buttonClassName
             )}
           >
-            {selectedLedger ? selectedLedger.name : "Select Ledger"}
+            {selectedLedger ? <div className="flex justify-between w-full">
+              <span>{selectedLedger.name}</span>
+              <span className="text-muted-foreground">
+                {Number(selectedLedger.balance).toLocaleString()}
+              </span>
+            </div> : "Select Ledger"}
             <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={cn("p-0", popoverWidth ?? "w-[300px]")}>
+        <PopoverContent className={cn("p-0", popoverWidth ?? "w-[300px] h-[250px]")}>
           <Command>
             <CommandInput placeholder="Search ledger..." />
             <CommandList>
@@ -94,11 +99,10 @@ export const LedgerSelectWithDialog = ({
                         value === ledger.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div className="flex justify-between"><span>{ledger.name}</span><span className="text-muted-foreground">{ledger.balance}</span></div>
+                    <div className="flex justify-between w-full"><span>{ledger.name}</span><span className="text-muted-foreground">{Number(ledger.balance).toLocaleString()}</span></div>
                   </CommandItem>
                 ))}
               </CommandGroup>
-
               <CommandGroup>
                 <CommandItem
                   onSelect={() => {
