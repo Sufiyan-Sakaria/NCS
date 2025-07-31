@@ -27,6 +27,7 @@ export const getInvoicesByBranch = async (
       },
       include: {
         createdByUser: true,
+        ledger: true,
       },
       orderBy: {
         date: "desc",
@@ -55,11 +56,10 @@ export const getInvoiceById = async (
         ledger: true,
         createdByUser: true,
         updatedByUser: true,
-        invoiceBook: true,
       },
     });
     if (!invoice) return next(new AppError("Invoice not found", 404));
-    res.json(invoice);
+    res.status(200).json({ success: true, data: invoice });
   } catch (error) {
     next(new AppError("Failed to fetch invoice", 500));
   }

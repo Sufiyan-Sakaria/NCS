@@ -7,6 +7,7 @@ export interface Ledger {
   type: string;
   phone1?: string;
   phone2?: string;
+  address?: string;
   balance: number;
   openingBalance: number;
   accountGroupId: string;

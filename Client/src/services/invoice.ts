@@ -59,7 +59,7 @@ export const getInvoicesByBranch = async (branchId: string): Promise<Invoice[]> 
 };
 
 export const getInvoiceById = async (id: string): Promise<Invoice> => {
-  const response: AxiosResponse<{ data: Invoice }> = await api.get(`/invoice/${id}`);
+  const response: AxiosResponse<{ data: Invoice }> = await api.get(`/invoice/single/${id}`);
   return response.data.data;
 };
 

@@ -14,7 +14,7 @@ const router = Router();
 router.get("/:branchId", getInvoicesByBranch);
 
 // Route to get a single invoice by ID
-router.get("/:id", getInvoiceById);
+router.get("/single/:id", getInvoiceById);
 
 // Route to get the next invoice number for a branch and type
 router.get("/number/:branchId", getInvoiceNumber);
