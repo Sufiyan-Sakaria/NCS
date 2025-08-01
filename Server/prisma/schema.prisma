@@ -492,6 +492,8 @@ enum LedgerType {
   OtherIncome
   Purchase
   PurchaseReturns
+  SalesDiscount        
+  PurchaseDiscount     
   Wages
   Rent
   Electricity
@@ -501,6 +503,7 @@ enum LedgerType {
   Depreciation
   MiscellaneousExpenses
 }
+
 
 model JournalBook {
   id              String         @id @default(uuid())

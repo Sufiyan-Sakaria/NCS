@@ -2,13 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -19,12 +13,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { useCreateCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 import axios from "axios";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { setUser } from "@/redux/slices/authSlice";
+import { useDispatch } from "react-redux";
 
-export function GettingStartedForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function GettingStartedForm({ className, ...props }: React.ComponentProps<"div">) {
+  const router = useRouter();
+  const dispatch = useDispatch();
   const today = new Date();
   const currentYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
 
@@ -44,12 +39,8 @@ export function GettingStartedForm({
     userPassword: "",
   });
 
-  const [financialYearStart, setFinancialYearStart] = useState<Date>(
-    new Date(currentYear, 3, 1)
-  );
-  const [financialYearEnd, setFinancialYearEnd] = useState<Date>(
-    new Date(currentYear + 1, 2, 31)
-  );
+  const [financialYearStart, setFinancialYearStart] = useState<Date>(new Date(currentYear, 3, 1));
+  const [financialYearEnd, setFinancialYearEnd] = useState<Date>(new Date(currentYear + 1, 2, 31));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,11 +49,11 @@ export function GettingStartedForm({
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCurrentStep((prev) => (prev < 3 ? (prev + 1) as 2 | 3 : prev));
+    setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 2 | 3) : prev));
   };
 
   const handleBack = () => {
-    setCurrentStep((prev) => (prev > 1 ? (prev - 1) as 1 | 2 : prev));
+    setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2) : prev));
   };
 
   const handleFinish = async (e: React.FormEvent) => {
@@ -81,22 +72,36 @@ export function GettingStartedForm({
     };
 
     try {
-      await createCompanyMutation.mutateAsync(payload);
+      const data = await createCompanyMutation.mutateAsync(payload);
+
+      dispatch(
+        setUser({
+          ...data.user,
+          branches: data.branches,
+        }),
+      );
+
       toast.success("Company created successfully!");
-      redirect("/dashboard");
+      router.push("/dashboard");
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         toast.error(error.response?.data?.message || error.message || "Failed to create company");
-        console.log(error)
+        console.log(error);
       }
     }
   };
 
   const StepProgress = () => (
     <div className="flex h-2 w-full overflow-hidden rounded-t-lg">
-      <div className={cn("flex-1 transition-all", currentStep >= 1 ? "bg-blue-500" : "bg-gray-200")} />
-      <div className={cn("flex-1 transition-all", currentStep >= 2 ? "bg-blue-500" : "bg-gray-200")} />
-      <div className={cn("flex-1 transition-all", currentStep >= 3 ? "bg-blue-500" : "bg-gray-200")} />
+      <div
+        className={cn("flex-1 transition-all", currentStep >= 1 ? "bg-blue-500" : "bg-gray-200")}
+      />
+      <div
+        className={cn("flex-1 transition-all", currentStep >= 2 ? "bg-blue-500" : "bg-gray-200")}
+      />
+      <div
+        className={cn("flex-1 transition-all", currentStep >= 3 ? "bg-blue-500" : "bg-gray-200")}
+      />
     </div>
   );
 
@@ -111,8 +116,8 @@ export function GettingStartedForm({
               {currentStep === 1
                 ? "Enter your company details"
                 : currentStep === 2
-                  ? "Now add your first branch"
-                  : "Finally, set up the first user"}
+                ? "Now add your first branch"
+                : "Finally, set up the first user"}
             </CardDescription>
           </CardHeader>
           <CardContent>

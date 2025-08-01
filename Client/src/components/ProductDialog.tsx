@@ -63,7 +63,7 @@ export function ProductDialog({
   const [enableStock, setEnableStock] = useState(false);
   const [stockEntry, setStockEntry] = useState({ godownId: "", qty: 0, thaan: 0, rate: 0 });
   const [initialStocks, setInitialStocks] = useState<
-    { godownId: string; qty: number; thaan: number, rate: number }[]
+    { godownId: string; qty: number; thaan: number; rate: number }[]
   >([]);
 
   const { data: godowns } = useGodowns(branchId);
@@ -176,7 +176,7 @@ export function ProductDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Product" : "Add New Product"}</DialogTitle>
         </DialogHeader>
@@ -208,7 +208,7 @@ export function ProductDialog({
                 value={product.unitId}
                 onValueChange={(value) => setProduct({ ...product, unitId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
                 <SelectContent>
@@ -227,7 +227,7 @@ export function ProductDialog({
                 value={product.brandId}
                 onValueChange={(value) => setProduct({ ...product, brandId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +246,7 @@ export function ProductDialog({
                 value={product.categoryId}
                 onValueChange={(value) => setProduct({ ...product, categoryId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,7 +284,7 @@ export function ProductDialog({
                         value={stockEntry.godownId}
                         onValueChange={(val) => setStockEntry({ ...stockEntry, godownId: val })}
                       >
-                        <SelectTrigger id="godown">
+                        <SelectTrigger id="godown" className="w-full">
                           <SelectValue placeholder="Select godown" />
                         </SelectTrigger>
                         <SelectContent>
@@ -360,15 +360,16 @@ export function ProductDialog({
                     <div className="space-y-2">
                       {initialStocks.map((entry, idx) => {
                         const total = (entry.qty * entry.rate).toFixed(2);
-                        const godownName = godowns?.find((g) => g.id === entry.godownId)?.name || "Unknown";
+                        const godownName =
+                          godowns?.find((g) => g.id === entry.godownId)?.name || "Unknown";
                         return (
                           <div
                             key={idx}
                             className="flex items-center justify-between px-4 py-2 rounded-md bg-background border text-sm"
                           >
                             <div className="text-muted-foreground">
-                              <span className="font-medium">{godownName}</span> – Qty: {entry.qty}, Thaan:{" "}
-                              {entry.thaan}, Rate: {entry.rate}, Total: {total}
+                              <span className="font-medium">{godownName}</span> – Qty: {entry.qty},
+                              Thaan: {entry.thaan}, Rate: {entry.rate}, Total: {total}
                             </div>
                             <Button
                               size="icon"
@@ -395,8 +396,8 @@ export function ProductDialog({
                 ? "Saving..."
                 : "Save Changes"
               : isCreating
-                ? "Adding..."
-                : "Add Product"}
+              ? "Adding..."
+              : "Add Product"}
           </Button>
         </DialogFooter>
       </DialogContent>

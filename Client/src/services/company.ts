@@ -1,5 +1,7 @@
 import api from "@/lib/axios";
+import { Branch } from "@/types/Branch";
 import { Company } from "@/types/Company";
+import { User } from "@/types/User";
 import { AxiosResponse } from "axios";
 
 export interface CreateCompanyPayload {
@@ -24,6 +26,11 @@ export interface DeleteCompanyPayload {
   id: string;
 }
 
+export interface CreateCompanyResponse {
+  user: User;
+  branches: Branch[]; // or type this more precisely
+}
+
 // GET /company
 export const getAllCompanies = async (): Promise<Company[]> => {
   const response: AxiosResponse<{ data: Company[] }> = await api.get("/company");
@@ -37,8 +44,13 @@ export const getCompanyById = async (id: string): Promise<Company> => {
 };
 
 // POST /company
-export const createCompany = async (payload: CreateCompanyPayload): Promise<Company> => {
-  const response: AxiosResponse<{ data: Company }> = await api.post("/company", payload);
+export const createCompany = async (
+  payload: CreateCompanyPayload,
+): Promise<CreateCompanyResponse> => {
+  const response: AxiosResponse<{ data: CreateCompanyResponse }> = await api.post(
+    "/company",
+    payload,
+  );
   return response.data.data;
 };
 

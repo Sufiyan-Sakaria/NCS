@@ -267,30 +267,85 @@ export const createInvoice = async (
           throw new AppError("One or both ledgers not found", 404);
         }
 
-        const journalEntries = [
-          {
+        const journalEntries = [];
+
+        // Main Debit entry
+        journalEntries.push({
+          date: formattedDate,
+          journalBookId: journalBook.id,
+          ledgerId: debitLedgerId,
+          type: EntryType.DEBIT,
+          amount: grandTotal,
+          preBalance: debitLedger.balance.toNumber(),
+          narration: `Invoice ${newInvoiceNumber} - ${type}`,
+          createdBy: userId,
+          invoiceId: invoice.id,
+        });
+
+        // Credit entry (full sale/purchase amount)
+        journalEntries.push({
+          date: formattedDate,
+          journalBookId: journalBook.id,
+          ledgerId: creditLedgerId,
+          type: EntryType.CREDIT,
+          amount: totalAmount, // before discount
+          preBalance: creditLedger.balance.toNumber(),
+          narration: `Invoice ${newInvoiceNumber} - ${type}`,
+          createdBy: userId,
+          invoiceId: invoice.id,
+        });
+
+        // Add discount entry if applicable
+        if (discount > 0) {
+          const discountLedger = await tx.ledger.findFirst({
+            where: {
+              branchId,
+              name:
+                type === "SALE" || type === "SALE_RETURN"
+                  ? "SalesDiscount"
+                  : "PurchaseDiscount",
+            },
+          });
+
+          if (!discountLedger) {
+            throw new AppError("Discount ledger not found", 400);
+          }
+
+          journalEntries.push({
             date: formattedDate,
             journalBookId: journalBook.id,
-            ledgerId: debitLedgerId,
-            type: EntryType.DEBIT,
-            amount: grandTotal,
-            preBalance: debitLedger.balance.toNumber(),
-            narration: `Invoice ${newInvoiceNumber} - ${type}`,
+            ledgerId: discountLedger.id,
+            type:
+              type === "SALE" || type === "SALE_RETURN"
+                ? EntryType.DEBIT
+                : EntryType.CREDIT,
+            amount: discount,
+            preBalance: discountLedger.balance.toNumber(),
+            narration: `Discount for Invoice ${newInvoiceNumber}`,
             createdBy: userId,
             invoiceId: invoice.id,
-          },
-          {
-            date: formattedDate,
-            journalBookId: journalBook.id,
-            ledgerId: creditLedgerId,
-            type: EntryType.CREDIT,
-            amount: grandTotal,
-            preBalance: creditLedger.balance.toNumber(),
-            narration: `Invoice ${newInvoiceNumber} - ${type}`,
-            createdBy: userId,
-            invoiceId: invoice.id,
-          },
-        ];
+          });
+
+          // Update discount ledger balance
+          await tx.ledger.update({
+            where: { id: discountLedger.id },
+            data: {
+              balance:
+                discountLedger.balance.toNumber() +
+                (type === "SALE" || type === "SALE_RETURN"
+                  ? discount
+                  : -discount),
+            },
+          });
+
+          if (discountLedger.accountGroupId) {
+            await updateParentBalances(
+              tx,
+              discountLedger.accountGroupId,
+              branchId
+            );
+          }
+        }
 
         await tx.journalEntry.createMany({ data: journalEntries });
 

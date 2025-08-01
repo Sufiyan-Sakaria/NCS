@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { InvoiceType, PrismaClient, VoucherType } from "../../generated/prisma";
 import { AppError } from "../utils/AppError";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const prisma = new PrismaClient();
 
@@ -166,16 +167,43 @@ export const createCompany = async (
       );
 
       return {
-        company,
-        financialYear,
-        branch,
         user,
-        journalBook,
-        productBook,
+        branch,
       };
     });
 
-    res.status(201).json({ success: true, data: result });
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        id: result.user.id,
+        email: result.user.email,
+        role: result.user.role,
+        companyId: result.user.companyId,
+      },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // send only over HTTPS in production
+      sameSite: "strict",
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role,
+          comanyId: result.user.companyId,
+          createdAt: result.user.createdAt,
+        },
+        branches: [result.branch],
+      },
+    });
   } catch (error) {
     next(error);
   }
