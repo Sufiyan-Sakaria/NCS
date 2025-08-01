@@ -1,4 +1,4 @@
-import { useActiveBranchId } from "../hooks/UseActiveBranch";
+import { useActiveBranchId } from "../hooks/UseActive";
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";

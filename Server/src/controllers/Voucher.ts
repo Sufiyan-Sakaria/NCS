@@ -152,32 +152,32 @@ export const createVoucher = async (
       const journalEntries = [];
 
       for (const entry of voucher.entries) {
-        // Debit entry
-        if (entry.type === EntryType.DEBIT) {
-          journalEntries.push({
-            journalBookId: journalBook.id,
-            date: formattedDate,
-            narration: entry.narration ?? narration,
-            ledgerId: entry.ledgerId,
-            amount: entry.amount,
-            type: EntryType.DEBIT,
-            createdBy: userId,
-          });
-        } else {
-          journalEntries.push({
-            journalBookId: journalBook.id,
-            date: formattedDate,
-            narration: entry.narration ?? narration,
-            ledgerId: entry.ledgerId,
-            amount: entry.amount,
-            type: EntryType.CREDIT,
-            createdBy: userId,
-          });
+        const [mainLedger, voucherLedger] = await Promise.all([
+          tx.ledger.findUnique({ where: { id: entry.ledgerId } }),
+          tx.ledger.findUnique({ where: { id: entry.voucherLedgerId } }),
+        ]);
+
+        if (!mainLedger || !voucherLedger) {
+          throw new AppError("Ledger not found", 404);
         }
 
-        // Corresponding opposite entry for the voucher ledger
+        // Main entry
+        journalEntries.push({
+          journalBookId: journalBook.id,
+          date: formattedDate,
+          narration: entry.narration ?? narration,
+          ledgerId: entry.ledgerId,
+          amount: entry.amount,
+          type: entry.type,
+          preBalance: mainLedger.balance.toNumber(),
+          createdBy: userId,
+          voucherId: voucher.id,
+        });
+
+        // Opposite entry
         const oppositeType =
           entry.type === EntryType.DEBIT ? EntryType.CREDIT : EntryType.DEBIT;
+
         journalEntries.push({
           journalBookId: journalBook.id,
           date: formattedDate,
@@ -185,7 +185,9 @@ export const createVoucher = async (
           ledgerId: entry.voucherLedgerId,
           amount: entry.amount,
           type: oppositeType,
+          preBalance: voucherLedger.balance.toNumber(),
           createdBy: userId,
+          voucherId: voucher.id,
         });
       }
 

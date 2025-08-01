@@ -4,7 +4,7 @@ import { GodownSelectWithDialog } from "@/components/GodownSelectWithDialog";
 import { ProductSelectWithDialog } from "@/components/ProductSelectWithDIalog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 import { Package, Layers, Hash, Boxes } from "lucide-react";
 import { NextPage } from "next";
 import { useState } from "react";

@@ -1,10 +1,12 @@
 import {
   AccountGroupNature,
   AccountGroupType,
+  Prisma,
   PrismaClient,
 } from "../../generated/prisma";
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
+import { getPreBalance } from "../utils/GetPreBalance";
 
 const prisma = new PrismaClient();
 
@@ -512,25 +514,39 @@ export const createLedger = async (
           ledgerEntryType === "DEBIT" ? "CREDIT" : "DEBIT";
 
         // 6. Create Journal Entries
-        await tx.journalEntry.createMany({
-          data: [
-            {
-              journalBookId: journal.id,
-              ledgerId: ledger.id,
-              type: ledgerEntryType,
-              amount: Math.abs(openingBalance),
-              narration: `Opening balance`,
-              createdBy: userId,
-            },
-            {
-              journalBookId: journal.id,
-              ledgerId: capitalAccount.id,
-              type: capitalEntryType,
-              amount: Math.abs(openingBalance),
-              narration: `Contra entry for ${ledger.name} opening balance`,
-              createdBy: userId,
-            },
-          ],
+        const now = new Date();
+
+        const preBalanceLedger = await getPreBalance(tx, ledger.id, now);
+        const preBalanceCapital = await getPreBalance(
+          tx,
+          capitalAccount.id,
+          now
+        );
+
+        await tx.journalEntry.create({
+          data: {
+            journalBookId: journal.id,
+            ledgerId: ledger.id,
+            type: ledgerEntryType,
+            amount: Math.abs(openingBalance),
+            preBalance: preBalanceLedger,
+            narration: `Opening balance`,
+            createdBy: userId,
+            date: now,
+          },
+        });
+
+        await tx.journalEntry.create({
+          data: {
+            journalBookId: journal.id,
+            ledgerId: capitalAccount.id,
+            type: capitalEntryType,
+            amount: Math.abs(openingBalance),
+            preBalance: preBalanceCapital,
+            narration: `Contra entry for ${ledger.name} opening balance`,
+            createdBy: userId,
+            date: now,
+          },
         });
 
         // 7. Update Capital Ledger Balance

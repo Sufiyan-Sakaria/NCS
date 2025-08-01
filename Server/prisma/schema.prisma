@@ -200,9 +200,8 @@ model Unit {
   Product      Product[]
   ProductStock ProductStock[]
 
-  createdByUser User?         @relation("UnitCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User?         @relation("UnitUpdatedBy", fields: [updatedBy], references: [id])
-  InvoiceItem   InvoiceItem[]
+  createdByUser User? @relation("UnitCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("UnitUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([name, branchId])
   @@unique([abb, branchId])
@@ -533,8 +532,13 @@ model JournalEntry {
   journalBookId String
   ledger        Ledger      @relation(fields: [ledgerId], references: [id])
   ledgerId      String
+  invoice       Invoice?     @relation(fields: [invoiceId], references: [id])
+  invoiceId     String?
+  voucher       Voucher?     @relation(fields: [voucherId], references: [id])
+  voucherId     String?
   type          EntryType
   amount        Float
+  preBalance    Float
   narration     String?
   isActive      Boolean     @default(true)
   createdBy     String?
@@ -547,6 +551,8 @@ model JournalEntry {
 
   @@index([journalBookId])
   @@index([ledgerId])
+  @@index([invoiceId])
+  @@index([voucherId])
   @@index([isActive])
 }
 
@@ -616,6 +622,7 @@ model Invoice {
   updatedByUser      User?                @relation("InvoiceUpdatedBy", fields: [updatedBy], references: [id])
   ProductLedgerEntry ProductLedgerEntry[]
   Voucher            Voucher[]
+  JournalEntry       JournalEntry[]
 
   @@unique([invoiceBookId, invoiceNumber])
   @@index([invoiceBookId, date])
@@ -644,10 +651,8 @@ model InvoiceItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdByUser User?   @relation("InvoiceItemCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User?   @relation("InvoiceItemUpdatedBy", fields: [updatedBy], references: [id])
-  Unit          Unit?   @relation(fields: [unitId], references: [id])
-  unitId        String?
+  createdByUser User? @relation("InvoiceItemCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("InvoiceItemUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([invoiceId])
   @@index([productId])
@@ -708,8 +713,9 @@ model Voucher {
   updatedByUser User? @relation("VoucherUpdatedBy", fields: [updatedBy], references: [id])
 
   // Link to related invoice if applicable
-  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
-  invoiceId String?
+  invoice      Invoice?       @relation(fields: [invoiceId], references: [id])
+  invoiceId    String?
+  JournalEntry JournalEntry[]
 
   @@unique([voucherBookId, voucherNumber])
   @@index([voucherBookId, date])

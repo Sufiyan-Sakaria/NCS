@@ -2,7 +2,7 @@
 
 import { NextPage } from "next";
 import { useState } from "react";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 import {
   Table,
   TableBody,

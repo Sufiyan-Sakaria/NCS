@@ -7,12 +7,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Printer, Phone, MapPin, Calendar, User, Hash, Building2 } from "lucide-react";
+import {
+  Printer,
+  Phone,
+  MapPin,
+  Calendar,
+  User,
+  Hash,
+  Mail,
+  Users,
+  CalendarDays,
+  MapIcon,
+  Package,
+} from "lucide-react";
+import { useActiveCompanyId, useActiveUser } from "@/hooks/UseActive";
+import { useCompany } from "@/hooks/useCompany";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function PrintInvoicePage() {
   const { id } = useParams();
+  const companyId = useActiveCompanyId();
+  const user = useActiveUser();
   const { data: invoice, isLoading, error } = useInvoiceById(id as string);
+  const { data: company } = useCompany(companyId);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const invoiceItems = invoice?.items || [];
 
   useEffect(() => {
     if (invoice && !isPrinting) {
@@ -22,7 +50,7 @@ export default function PrintInvoicePage() {
         window.print();
         setIsPrinting(false);
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [invoice, isPrinting]);
@@ -56,30 +84,25 @@ export default function PrintInvoicePage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'decimal',
+    return new Intl.NumberFormat("en-US", {
+      style: "decimal",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
   const getInvoiceTypeDisplay = (type: string) => {
     switch (type) {
-      case "SALE": return "Sales Invoice";
-      case "PURCHASE": return "Purchase Invoice";
-      case "SALE_RETURN": return "Sales Return";
-      case "PURCHASE_RETURN": return "Purchase Return";
-      default: return type;
-    }
-  };
-
-  const getInvoiceTypeVariant = (type: string) => {
-    switch (type) {
-      case "SALE": return "default";
-      case "PURCHASE": return "secondary";
-      case "SALE_RETURN": return "destructive";
-      case "PURCHASE_RETURN": return "outline";
-      default: return "default";
+      case "SALE":
+        return "Sales Invoice";
+      case "PURCHASE":
+        return "Purchase Invoice";
+      case "SALE_RETURN":
+        return "Sales Return";
+      case "PURCHASE_RETURN":
+        return "Purchase Return";
+      default:
+        return type;
     }
   };
 
@@ -87,77 +110,158 @@ export default function PrintInvoicePage() {
     <>
       {/* Screen-only print button */}
       <div className="print:hidden fixed top-4 right-4 z-10">
-        <Button
-          onClick={() => window.print()}
-          className="shadow-lg"
-          size="sm"
-        >
+        <Button onClick={() => window.print()} className="shadow-lg" size="sm">
           <Printer className="w-4 h-4 mr-2" />
-          Print Again
+          Print
         </Button>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6 print:p-0 print:max-w-none bg-background">
-        {/* Header Section */}
-        <Card className="mb-6 print:shadow-none print:border-2 print:border-black">
-          <CardHeader className="pb-4">
+      <div className="max-w-5xl space-y-2 mx-auto p-6 print:p-0 print:max-w-none bg-background">
+        {/* Enhanced Company Details Section */}
+        <Card className="print:shadow-none print:border-2 print:border-black py-2">
+          <CardHeader className="flex items-center justify-center">
             <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <CardTitle className="text-3xl font-bold">
-                  {getInvoiceTypeDisplay(invoice.type)}
-                </CardTitle>
-                <div className="flex items-center gap-3">
-                  <Badge variant={getInvoiceTypeVariant(invoice.type)} className="text-sm">
-                    {invoice.type}
-                  </Badge>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Hash className="w-4 h-4" />
-                    <span className="font-mono text-lg">{invoice.invoiceNumber}</span>
+              <div className="space-y-1 flex-1">
+                <div>
+                  <CardTitle className="text-4xl font-bold text-primary print:text-black">
+                    {company?.name || "Company Name"}
+                  </CardTitle>
+                  {company?.email && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="w-4 h-4" />
+                      <span className="text-lg">{company.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Company Timeline */}
+                {company && (
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>Since: {new Date(company.createdAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="text-right space-y-1">
-                <div className="text-sm text-muted-foreground flex items-center justify-end gap-1">
-                  <Calendar className="w-4 h-4" />
-                  Date
-                </div>
-                <div className="text-lg font-semibold">
-                  {new Date(invoice.date).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </div>
+                )}
               </div>
             </div>
           </CardHeader>
+
+          {/* Company Details Sections */}
+          {(company?.branches?.length ||
+            company?.financialYears?.length ||
+            company?.users?.length) && (
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Branches Section */}
+                {company?.branches && company.branches.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2 mb-3">
+                      <MapIcon className="w-4 h-4" />
+                      Branches ({company.branches.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {company.branches.slice(0, 3).map((branch) => (
+                        <div key={branch.id} className="p-2 border rounded-md">
+                          <p className="font-medium text-sm">{branch.name}</p>
+                          {branch.address && (
+                            <p className="text-xs text-muted-foreground">{branch.address}</p>
+                          )}
+                        </div>
+                      ))}
+                      {company.branches.length > 3 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{company.branches.length - 3} more branches
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Financial Years Section */}
+                {company?.financialYears && company.financialYears.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2 mb-3">
+                      <CalendarDays className="w-4 h-4" />
+                      Financial Years ({company.financialYears.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {company.financialYears.slice(0, 3).map((fy) => (
+                        <div key={fy.id} className="p-2 border rounded-md">
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(fy.startDate).toLocaleDateString()} -{" "}
+                            {new Date(fy.endDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                      {company.financialYears.length > 3 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{company.financialYears.length - 3} more years
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Users Section */}
+                {company?.users && company.users.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2 mb-3">
+                      <Users className="w-4 h-4" />
+                      Team Members ({company.users.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {company.users.slice(0, 3).map((user) => (
+                        <div key={user.id} className="p-2 border rounded-md">
+                          <p className="font-medium text-sm">{user.name}</p>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                          {user.role && (
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {user.role}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                      {company.users.length > 3 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{company.users.length - 3} more users
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Invoice Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           {/* Party Information */}
-          <Card className="print:shadow-none print:border print:border-black">
-            <CardHeader className="pb-3">
+          <Card className="print:shadow-none print:border print:border-black py-2">
+            <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="w-4 h-4" />
-                {invoice.type === 'SALE' || invoice.type === 'SALE_RETURN' ? 'Bill To' : 'Bill From'}
+                <User className="w-4 h-4" />
+                {invoice.type === "SALE" || invoice.type === "SALE_RETURN"
+                  ? "Customer Information"
+                  : "Supplier Information"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               <div>
                 <h3 className="font-semibold text-lg">{invoice.ledger.name}</h3>
                 <p className="text-sm text-muted-foreground">
                   Code: <span className="font-mono">{invoice.ledger.code}</span>
                 </p>
               </div>
-              
+
               {invoice.ledger.address && (
                 <div className="flex items-start gap-2 text-sm">
                   <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
                   <span>{invoice.ledger.address}</span>
                 </div>
               )}
-              
+
               <div className="space-y-1">
                 {invoice.ledger.phone1 && (
                   <div className="flex items-center gap-2 text-sm">
@@ -172,7 +276,7 @@ export default function PrintInvoicePage() {
                   </div>
                 )}
               </div>
-              
+
               <Separator />
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Current Balance</span>
@@ -184,72 +288,168 @@ export default function PrintInvoicePage() {
           </Card>
 
           {/* Invoice Information */}
-          <Card className="print:shadow-none print:border print:border-black">
-            <CardHeader className="pb-3">
+          <Card className="print:shadow-none print:border print:border-black py-2">
+            <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Hash className="w-4 h-4" />
                 Invoice Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="flex items-center flex-col">
                   <span className="text-muted-foreground">Type</span>
-                  <p className="font-medium">{getInvoiceTypeDisplay(invoice.type)}</p>
+                  <p>{getInvoiceTypeDisplay(invoice.type)}</p>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Book ID</span>
-                  <p className="font-mono text-xs">{invoice.invoiceBookId}</p>
-                </div>
-              </div>
-              
-              {invoice.invoiceLedger && (
-                <div>
-                  <span className="text-muted-foreground text-sm">Invoice Ledger</span>
-                  <p className="font-medium">{invoice.invoiceLedger.name}</p>
-                </div>
-              )}
-              
-              <Separator />
-              
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    Created
-                  </span>
-                  <p className="font-medium">
-                    {new Date(invoice.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                {invoice.updatedAt !== invoice.createdAt && (
-                  <div>
-                    <span className="text-muted-foreground">Updated</span>
-                    <p className="font-medium">
-                      {new Date(invoice.updatedAt).toLocaleDateString()}
-                    </p>
+
+                {invoice.invoiceLedger && (
+                  <div className="flex items-center flex-col">
+                    <span className="text-muted-foreground text-sm">Invoice Ledger</span>
+                    <p>{invoice.invoiceLedger.name}</p>
                   </div>
                 )}
+
+                <div className="flex items-center flex-col">
+                  <span className="text-muted-foreground text-sm">Invoice No.</span>
+                  <p>{invoice.invoiceNumber}</p>
+                </div>
               </div>
-              
-              <div>
-                <span className="text-muted-foreground text-sm flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  Created By
-                </span>
-                <p className="font-medium">{invoice.createdByUser?.name || invoice.createdBy}</p>
+
+              <Separator />
+
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="flex items-center flex-col">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Created Date
+                  </span>
+                  <p className="font-medium">{new Date(invoice.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div className="flex items-center flex-col">
+                  <span className="text-muted-foreground text-sm flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    Created By
+                  </span>
+                  <p className="font-medium">{invoice.createdByUser?.name || invoice.createdBy}</p>
+                </div>
+                <div className="flex items-center flex-col">
+                  <span className="text-muted-foreground text-sm flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    Printed By
+                  </span>
+                  <p className="font-medium">{user?.name}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {/* Invoice Items Section */}
+        {invoiceItems && invoiceItems.length > 0 && (
+          <Card className="print:shadow-none print:border print:border-black py-3 gap-2">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Invoice Items ({invoiceItems.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Desktop Table View */}
+              <div className="overflow-x-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center border-r">Sr No.</TableHead>
+                      <TableHead className="text-center border-r">Product</TableHead>
+                      <TableHead className="text-center border-r">Unit</TableHead>
+                      <TableHead className="text-center border-r">Brand</TableHead>
+                      <TableHead className="text-center border-r">Category</TableHead>
+                      <TableHead className="text-center border-r">Qty</TableHead>
+                      <TableHead className="text-center border-r">Thaan</TableHead>
+                      <TableHead className="text-center border-r">Rate</TableHead>
+                      <TableHead className="text-center border-r">Discount</TableHead>
+                      <TableHead className="text-center border-r">Tax</TableHead>
+                      <TableHead className="text-center">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoiceItems.map((item, index) => (
+                      <TableRow key={item.id} className="border-b hover:bg-muted/50">
+                        <TableCell className="text-center border-r">{index + 1}</TableCell>
+                        <TableCell className="text-center border-r">{item.product.name}</TableCell>
+                        <TableCell className="text-center border-r">
+                          {item.product.unit.name}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {item.product.brand.name}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {item.product.category.name}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {item.quantity.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {item.thaan.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {formatCurrency(item.rate)}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {formatCurrency(item.discount)}
+                        </TableCell>
+                        <TableCell className="text-center border-r">
+                          {formatCurrency(item.taxAmount)}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">
+                          {formatCurrency(item.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow className="font-bold">
+                      <TableCell colSpan={5} className="text-left px-5">
+                        Total:
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {invoiceItems.reduce((sum, item) => sum + item.quantity, 0)}
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {invoiceItems.reduce((sum, item) => sum + item.thaan, 0)}
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {formatCurrency(
+                          invoiceItems.reduce((sum, item) => sum + item.rate, 0) /
+                            invoiceItems.length,
+                        )}
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {formatCurrency(invoiceItems.reduce((sum, item) => sum + item.discount, 0))}
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {formatCurrency(
+                          invoiceItems.reduce((sum, item) => sum + item.taxAmount, 0),
+                        )}
+                      </TableCell>
+                      <TableCell className="text-md text-center">
+                        {formatCurrency(invoiceItems.reduce((sum, item) => sum + item.amount, 0))}
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Financial Summary */}
-        <Card className="mb-6 print:shadow-none print:border print:border-black">
+        <Card className="print:shadow-none print:border print:border-black py-2">
           <CardHeader>
             <CardTitle className="text-center">Financial Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <div className="text-center space-y-2">
                 <div className="text-sm text-muted-foreground">Total Amount</div>
                 <div className="text-2xl font-bold text-primary print:text-black">
@@ -271,100 +471,12 @@ export default function PrintInvoicePage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Grand Total Section */}
-        <div className="flex justify-end mb-6">
-          <Card className="w-full max-w-sm print:shadow-none print:border-2 print:border-black">
-            <CardContent className="p-6">
-              <div className="space-y-3">
-                <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(invoice.totalAmount)}</span>
-                </div>
-                {invoice.discount > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span className="font-medium text-destructive print:text-black">
-                      -{formatCurrency(invoice.discount)}
-                    </span>
-                  </div>
-                )}
-                {invoice.cartage > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-muted-foreground">Cartage</span>
-                    <span className="font-medium text-green-600 print:text-black">
-                      +{formatCurrency(invoice.cartage)}
-                    </span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between py-2">
-                  <span className="text-xl font-bold">Grand Total</span>
-                  <span className="text-xl font-bold text-primary print:text-black">
-                    {formatCurrency(invoice.grandTotal)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Narration Section */}
-        {invoice.narration && (
-          <Card className="mb-6 print:shadow-none print:border print:border-black">
-            <CardHeader>
-              <CardTitle className="text-base">Narration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{invoice.narration}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Status and Meta Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card className="print:shadow-none print:border print:border-black">
-            <CardHeader>
-              <CardTitle className="text-base">Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Badge variant={invoice.isActive ? "default" : "destructive"}>
-                  {invoice.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="print:shadow-none print:border print:border-black">
-            <CardHeader>
-              <CardTitle className="text-base">Document References</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-xs text-muted-foreground">
-              <div>
-                <span className="font-medium">Invoice ID:</span>
-                <span className="font-mono ml-2">{invoice.id}</span>
-              </div>
-              <div>
-                <span className="font-medium">Ledger ID:</span>
-                <span className="font-mono ml-2">{invoice.ledgerId}</span>
-              </div>
-              {invoice.invoiceLedgerId && (
-                <div>
-                  <span className="font-medium">Invoice Ledger ID:</span>
-                  <span className="font-mono ml-2">{invoice.invoiceLedgerId}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Footer */}
-        <Card className="print:shadow-none print:border-t print:border-black print:rounded-none">
-          <CardContent className="text-center py-6">
+        <Card className="print:shadow-none print:border-t print:border-black print:rounded-none py-2">
+          <CardContent className="text-center p-0">
             <p className="text-muted-foreground">Thank you for your business!</p>
-            <p className="text-sm text-muted-foreground mt-1">This is a computer-generated invoice.</p>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground">This is a computer-generated invoice.</p>
+            <p className="text-xs text-muted-foreground">
               Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
             </p>
           </CardContent>
@@ -378,40 +490,54 @@ export default function PrintInvoicePage() {
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
           }
-          
-          body { 
-            font-size: 12px !important; 
+
+          body {
+            font-size: 12px !important;
             line-height: 1.4 !important;
             margin: 0 !important;
             padding: 0 !important;
           }
-          
-          @page { 
+
+          @page {
             margin: 0.5in !important;
             size: A4 !important;
-            
+
             /* Hide browser header/footer */
-            @top-left { content: ""; }
-            @top-right { content: ""; }
-            @top-center { content: ""; }
-            @bottom-left { content: ""; }
-            @bottom-right { content: ""; }
-            @bottom-center { content: ""; }
+            @top-left {
+              content: "";
+            }
+            @top-right {
+              content: "";
+            }
+            @top-center {
+              content: "";
+            }
+            @bottom-left {
+              content: "";
+            }
+            @bottom-right {
+              content: "";
+            }
+            @bottom-center {
+              content: "";
+            }
           }
-          
+
           /* Hide all browser UI elements */
           body::before,
           body::after {
             display: none !important;
           }
-          
+
           /* Ensure clean page breaks */
           .page-break {
             page-break-before: always;
           }
-          
+
           /* Hide any potential browser additions */
-          header, nav, .no-print {
+          header,
+          nav,
+          .no-print {
             display: none !important;
           }
         }

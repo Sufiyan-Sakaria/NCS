@@ -52,8 +52,20 @@ export const getInvoiceById = async (
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                unit: true,
+                category: true,
+                brand: true,
+              },
+            },
+            godown: true,
+          },
+        },
         ledger: true,
+        invoiceLedger: true,
         createdByUser: true,
         updatedByUser: true,
       },
@@ -244,30 +256,6 @@ export const createInvoice = async (
             throw new AppError("Unsupported invoice type", 400);
         }
 
-        const journalEntries = [
-          {
-            date: formattedDate,
-            journalBookId: journalBook.id,
-            ledgerId: debitLedgerId,
-            type: EntryType.DEBIT,
-            amount: grandTotal,
-            narration: `Invoice ${newInvoiceNumber} - ${type}`,
-            createdBy: userId,
-          },
-          {
-            date: formattedDate,
-            journalBookId: journalBook.id,
-            ledgerId: creditLedgerId,
-            type: EntryType.CREDIT,
-            amount: grandTotal,
-            narration: `Invoice ${newInvoiceNumber} - ${type}`,
-            createdBy: userId,
-          },
-        ];
-
-        await tx.journalEntry.createMany({ data: journalEntries });
-
-        // 5. Update ledger balances
         const debitLedger = await tx.ledger.findUnique({
           where: { id: debitLedgerId },
         });
@@ -278,6 +266,35 @@ export const createInvoice = async (
         if (!debitLedger || !creditLedger) {
           throw new AppError("One or both ledgers not found", 404);
         }
+
+        const journalEntries = [
+          {
+            date: formattedDate,
+            journalBookId: journalBook.id,
+            ledgerId: debitLedgerId,
+            type: EntryType.DEBIT,
+            amount: grandTotal,
+            preBalance: debitLedger.balance.toNumber(),
+            narration: `Invoice ${newInvoiceNumber} - ${type}`,
+            createdBy: userId,
+            invoiceId: invoice.id,
+          },
+          {
+            date: formattedDate,
+            journalBookId: journalBook.id,
+            ledgerId: creditLedgerId,
+            type: EntryType.CREDIT,
+            amount: grandTotal,
+            preBalance: creditLedger.balance.toNumber(),
+            narration: `Invoice ${newInvoiceNumber} - ${type}`,
+            createdBy: userId,
+            invoiceId: invoice.id,
+          },
+        ];
+
+        await tx.journalEntry.createMany({ data: journalEntries });
+
+        // 5. Update ledger balances
 
         await tx.ledger.update({
           where: { id: debitLedgerId },

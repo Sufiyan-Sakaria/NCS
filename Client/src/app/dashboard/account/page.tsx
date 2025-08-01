@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { useHierarchicalAccounts, useCreateDefaultAccounts } from "@/hooks/UseAccount";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 import { AccountGroupDialog } from "@/components/AccountGroupDialog";
 import { NextPage } from "next";
 import { AccountGroup, Nature, EditableAccountGroup } from "@/types/AccountGroup";

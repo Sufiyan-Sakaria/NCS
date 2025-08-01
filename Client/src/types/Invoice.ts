@@ -1,9 +1,12 @@
+import { Godown } from "./Godown";
 import { Ledger } from "./Ledger";
+import { Product } from "./Product";
+import { Unit } from "./Unit";
 import { User } from "./User";
 
 export type InvoiceType = "SALE" | "PURCHASE" | "SALE_RETURN" | "PURCHASE_RETURN";
 
-export type Invoice = {
+export interface Invoice {
   id: string;
   invoiceNumber: string;
   date: string;
@@ -18,10 +21,36 @@ export type Invoice = {
   cartage: number;
   grandTotal: number;
   narration: string | null;
+  items: InvoiceItem[];
   createdBy: string;
   updatedBy: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   createdByUser: User;
-};
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice: Invoice;
+  invoiceId: string;
+  product: Product;
+  productId: string;
+  quantity: number;
+  thaan: number;
+  godown: Godown;
+  godownId: string;
+  rate: number;
+  discount: number;
+  taxAmount: number;
+  amount: number;
+  createdBy?: string;
+  updatedBy?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdByUser?: User;
+  updatedByUser?: User;
+  Unit: Unit;
+  unitId: string;
+}

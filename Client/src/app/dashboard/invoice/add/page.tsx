@@ -1,7 +1,7 @@
 "use client";
 
 import AddInvoiceForm from "@/components/AddInvoiceForm";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 
 export default function AddInvoicePage() {
   const branchId = useActiveBranchId();

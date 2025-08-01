@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { CalendarIcon, Printer } from "lucide-react";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 import { Invoice, InvoiceType } from "@/types/Invoice";
 
 export default function InvoicesPage() {

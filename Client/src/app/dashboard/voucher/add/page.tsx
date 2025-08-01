@@ -1,7 +1,7 @@
 "use client";
 
 import VoucherForm from "@/components/VoucherForm";
-import { useActiveBranchId } from "@/hooks/UseActiveBranch";
+import { useActiveBranchId } from "@/hooks/UseActive";
 
 const Page = () => {
   const branchId = useActiveBranchId();
