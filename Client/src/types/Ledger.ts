@@ -21,6 +21,8 @@ export interface Ledger {
 }
 
 export type LedgerType =
+  | "GSTInput"
+  | "GSTOutput"
   | "Cash"
   | "Bank"
   | "AccountsReceivable"
@@ -31,8 +33,6 @@ export type LedgerType =
   | "AccountsPayable"
   | "AccruedExpenses"
   | "LoansPayable"
-  | "GSTPayable"
-  | "TDSPayable"
   | "AdvanceFromCustomers"
   | "OwnerCapital"
   | "RetainedEarnings"

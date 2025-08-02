@@ -121,7 +121,7 @@ export const createCompany = async (
       });
 
       // 5. Create Journal Book
-      const journalBook = await tx.journalBook.create({
+      await tx.journalBook.create({
         data: {
           yearLabel,
           financialYearId: financialYear.id,
@@ -130,7 +130,7 @@ export const createCompany = async (
       });
 
       // 6. Create Product Book
-      const productBook = await tx.productBook.create({
+      await tx.productBook.create({
         data: {
           yearLabel,
           financialYearId: financialYear.id,
@@ -167,6 +167,7 @@ export const createCompany = async (
       );
 
       return {
+        company,
         user,
         branch,
       };
@@ -199,7 +200,7 @@ export const createCompany = async (
           email: result.user.email,
           role: result.user.role,
           comanyId: result.user.companyId,
-          createdAt: result.user.createdAt,
+          gstPercent: result.company.gstPercent,
         },
         branches: [result.branch],
       },

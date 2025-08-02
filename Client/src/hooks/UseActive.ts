@@ -20,3 +20,7 @@ export const useActiveUser = (): User | null => {
 
   return user;
 };
+
+export const useActiveGST = (): number | null => {
+  const {gstPercent} = useSelector((state:RootState)=>state.auth)
+}

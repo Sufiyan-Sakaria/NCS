@@ -35,7 +35,7 @@ import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { useAccountGroups, useCreateLedger, useUpdateLedger } from "@/hooks/UseAccount";
-import { Ledger } from "@/types/Ledger";
+import { Ledger, LedgerType } from "@/types/Ledger";
 import { AccountFormValues, accountFormSchema } from "@/validations/account";
 import { Nature } from "@/types/AccountGroup";
 
@@ -49,7 +49,9 @@ interface AccountDialogProps {
   onSuccess?: () => void;
 }
 
-const ledgerTypeToNatureMap: Record<string, Nature> = {
+const ledgerTypeToNatureMap: Record<LedgerType, Nature> = {
+  // Assets
+  GSTInput: "Assets",
   Cash: "Assets",
   Bank: "Assets",
   AccountsReceivable: "Assets",
@@ -58,25 +60,32 @@ const ledgerTypeToNatureMap: Record<string, Nature> = {
   PrepaidExpenses: "Assets",
   AdvanceToSuppliers: "Assets",
 
+  // Liabilities
+  GSTOutput: "Liabilities",
   AccountsPayable: "Liabilities",
   AccruedExpenses: "Liabilities",
   LoansPayable: "Liabilities",
-  GSTPayable: "Liabilities",
-  TDSPayable: "Liabilities",
   AdvanceFromCustomers: "Liabilities",
 
+  // Capital
   OwnerCapital: "Capital",
   RetainedEarnings: "Capital",
   Drawings: "Capital",
   Reserves: "Capital",
 
+  // Income
   Sales: "Income",
+  SalesReturns: "Income",
+  PurchaseDiscounts: "Income",
   InterestIncome: "Income",
   CommissionReceived: "Income",
   RentalIncome: "Income",
   OtherIncome: "Income",
 
+  // Expenses
   Purchase: "Expenses",
+  PurchaseReturns: "Expenses",
+  SalesDiscount: "Expenses",
   Wages: "Expenses",
   Rent: "Expenses",
   Electricity: "Expenses",

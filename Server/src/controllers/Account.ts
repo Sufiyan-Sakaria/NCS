@@ -317,7 +317,6 @@ export const createLedger = async (
       openingBalance,
       accountGroupId,
       branchId,
-      financialYearId,
     } = req.body;
     const userId = req.user?.id;
 
@@ -484,8 +483,10 @@ export const createLedger = async (
         const journal = await tx.journalBook.findFirst({
           where: {
             branchId,
-            financialYearId,
             isActive: true,
+          },
+          orderBy: {
+            createdAt: "desc",
           },
         });
 

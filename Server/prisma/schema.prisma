@@ -12,6 +12,7 @@ model Company {
   id            String          @id @default(uuid())
   name          String          @unique
   email         String          @unique
+  gstPercent    Float           @default(18)
   Branch        Branch[]
   FinancialYear FinancialYear[]
   User          User[]
@@ -467,18 +468,17 @@ model Ledger {
 }
 
 enum LedgerType {
+  GSTInput
+  GSTOutput
   Cash
   Bank
   AccountsReceivable
-  Inventory
   FixedAssets
   PrepaidExpenses
   AdvanceToSuppliers
   AccountsPayable
   AccruedExpenses
   LoansPayable
-  GSTPayable
-  TDSPayable
   AdvanceFromCustomers
   OwnerCapital
   RetainedEarnings
@@ -492,8 +492,8 @@ enum LedgerType {
   OtherIncome
   Purchase
   PurchaseReturns
-  SalesDiscount        
-  PurchaseDiscount     
+  SalesDiscount
+  PurchaseDiscount
   Wages
   Rent
   Electricity
@@ -503,7 +503,6 @@ enum LedgerType {
   Depreciation
   MiscellaneousExpenses
 }
-
 
 model JournalBook {
   id              String         @id @default(uuid())
@@ -535,9 +534,9 @@ model JournalEntry {
   journalBookId String
   ledger        Ledger      @relation(fields: [ledgerId], references: [id])
   ledgerId      String
-  invoice       Invoice?     @relation(fields: [invoiceId], references: [id])
+  invoice       Invoice?    @relation(fields: [invoiceId], references: [id])
   invoiceId     String?
-  voucher       Voucher?     @relation(fields: [voucherId], references: [id])
+  voucher       Voucher?    @relation(fields: [voucherId], references: [id])
   voucherId     String?
   type          EntryType
   amount        Float
@@ -612,6 +611,7 @@ model Invoice {
   totalAmount Float
   discount    Float         @default(0)
   cartage     Float         @default(0)
+  taxAmount   Float         @default(0)
   grandTotal  Float
   narration   String?
   items       InvoiceItem[]
