@@ -95,8 +95,8 @@ export const login = async (
         email: user.email,
         role: user.role,
         companyId: user.companyId,
-        gstPercent: user.company.gstPercent,
       },
+      gstPercent: user.company.gstPercent,
       branches,
     });
   } catch (error) {

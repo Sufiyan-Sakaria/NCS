@@ -14,10 +14,10 @@ export interface AuthResponse {
     email: string;
     role: string;
     companyId: string;
-    gstPercent: number;
     createdAt: Date;
     updatedAt: Date;
   };
+  gstPercent: number;
   branches?: Array<{
     id: string;
     name: string;

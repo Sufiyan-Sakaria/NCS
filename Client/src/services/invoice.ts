@@ -12,6 +12,7 @@ export interface CreateInvoicePayload {
   totalAmount: number;
   discount?: number;
   cartage?: number;
+  taxAmount?: number;
   grandTotal: number;
   narration?: string;
   items: {

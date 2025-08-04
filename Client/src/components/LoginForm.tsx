@@ -34,9 +34,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
       if (data.user && data.branches) {
         dispatch(
           setUser({
-            ...data.user,
-            role: data.user.role as Role,
-            branches: data.branches,
+            user: {
+              ...data.user,
+              role: data.user.role as Role,
+              branches: data.branches,
+            },
+            gstPercent: data.gstPercent,
           }),
         );
       }

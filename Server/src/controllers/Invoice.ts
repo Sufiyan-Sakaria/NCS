@@ -471,7 +471,7 @@ async function createSaleJournalEntries(
     const discountLedger = await tx.ledger.findFirst({
       where: {
         branchId,
-        name: "SalesDiscount", // or "Discount Allowed"
+        type: "SalesDiscount",
       },
     });
 

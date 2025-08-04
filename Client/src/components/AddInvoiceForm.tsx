@@ -28,6 +28,7 @@ import { useCreateinvoice, useInvoiceNumber } from "@/hooks/useInvoice";
 import { CreateInvoicePayload } from "@/services/invoice";
 import { toast } from "sonner";
 import { InvoiceTypeSelect } from "./InvoiceTypeSelect";
+import { useActiveGST } from "@/hooks/UseActive";
 
 interface Item {
   product: Product;
@@ -46,11 +47,11 @@ interface InvoiceFormData {
   narration: string;
   discount: number;
   cartage: number;
+  taxAmount: number;
   grandTotal: number;
 }
 
 export default function AddInvoiceForm({ branchId }: { branchId: string }) {
-
   const form = useForm<InvoiceFormData>({
     defaultValues: {
       invoiceNumber: 0,
@@ -60,6 +61,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
       narration: "",
       discount: 0,
       cartage: 0,
+      taxAmount: 0,
       grandTotal: 0,
       type: "SALE",
     },
@@ -71,6 +73,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
   const { data: godowns = [] } = useGodowns(branchId);
   const { data: ledgers = [] } = useLedgers(branchId);
   const { data: invoiceNumberData, isSuccess } = useInvoiceNumber(branchId, invoiceType);
+  const gstPercent = useActiveGST();
   const createInvoiceMutation = useCreateinvoice(branchId);
 
   const itemForm = useForm({
@@ -84,20 +87,27 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
     },
   });
 
+  const [isTaxEnabled, setIsTaxEnabled] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const productRef = useRef<HTMLButtonElement>(null);
+
+  const watchDiscount = form.watch("discount") || 0;
+  const watchCartage = form.watch("cartage") || 0;
+
+  const totalAmount = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
+  const taxableAmount = totalAmount - watchDiscount + watchCartage;
+  const calculatedTax = isTaxEnabled ? (taxableAmount * (gstPercent || 0)) / 100 : 0;
+  const grandTotal = taxableAmount + calculatedTax;
 
   // Set invoice number when fetched
   useEffect(() => {
     if (isSuccess && invoiceNumberData) {
       form.setValue("invoiceNumber", parseInt(invoiceNumberData));
     }
-  }, [invoiceNumberData, isSuccess, form]);
-
-  const totalAmount = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
-  const grandTotal =
-    totalAmount - Number(form.watch("discount") || 0) + Number(form.watch("cartage") || 0);
+    form.setValue("taxAmount", calculatedTax);
+    form.setValue("grandTotal", grandTotal);
+  }, [calculatedTax, grandTotal, invoiceNumberData, isSuccess, form]);
 
   const onAddItem = () => {
     productRef.current?.focus();
@@ -129,6 +139,10 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
 
     const payload: CreateInvoicePayload = {
       ...data,
+      discount: Number(data.discount),
+      cartage: Number(data.cartage),
+      taxAmount: Number(data.taxAmount),
+      grandTotal: Number(data.grandTotal),
       date: data.date.toISOString(),
       items: items.map((item) => ({
         productId: item.product.id,
@@ -139,7 +153,6 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
         amount: item.quantity * item.rate,
       })),
       totalAmount,
-      grandTotal,
       branchId,
     };
 
@@ -171,8 +184,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
               const isInsideItemForm = tag.closest("#add-item-form");
               const isTextArea = tag.tagName === "TEXTAREA";
               const isComboOrBtn =
-                tag.getAttribute("role") === "combobox" ||
-                tag.getAttribute("role") === "button";
+                tag.getAttribute("role") === "combobox" || tag.getAttribute("role") === "button";
 
               if (e.key === "Enter") {
                 if (isTextArea || isComboOrBtn) return; // Let Enter work as usual
@@ -300,14 +312,30 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                     <TableBody>
                       {items.map((item, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="text-center p-0 border-r border-b">{idx + 1}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.product.name}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.product.brand.name}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.product.unit.name}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.godown.name}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.quantity}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.thaan}</TableCell>
-                          <TableCell className="text-center p-0 border-r border-b">{item.rate}</TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {idx + 1}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.product.name}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.product.brand.name}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.product.unit.name}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.godown.name}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.thaan}
+                          </TableCell>
+                          <TableCell className="text-center p-0 border-r border-b">
+                            {item.rate}
+                          </TableCell>
                           <TableCell className="text-center p-0 font-mono text-sm border-b border-r">
                             {(item.quantity * item.rate).toLocaleString("en-US", {
                               minimumFractionDigits: 2,
@@ -346,7 +374,10 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
 
               {/* Add Item Form */}
               <Form {...itemForm}>
-                <div className="grid grid-cols-[4fr_3fr_1fr_1fr_1fr_1.5fr_1.5fr] gap-2 items-end mt-2" id="add-item-form">
+                <div
+                  className="grid grid-cols-[4fr_3fr_1fr_1fr_1fr_1.5fr_1.5fr] gap-2 items-end mt-2"
+                  id="add-item-form"
+                >
                   <FormField
                     control={itemForm.control}
                     name="productId"
@@ -399,7 +430,8 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
 
                       const selectedProduct = products.find((p) => p.id === productId);
                       const stockQty =
-                        selectedProduct?.ProductStock.find((stock) => stock.godownId === godownId)?.qty ?? 0;
+                        selectedProduct?.ProductStock.find((stock) => stock.godownId === godownId)
+                          ?.qty ?? 0;
                       const totalQty = selectedProduct?.qty ?? 0;
 
                       // Choose the qty to display
@@ -410,14 +442,15 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                         displayQty === null
                           ? "text-muted-foreground"
                           : displayQty === 0
-                            ? "text-red-500"
-                            : displayQty <= 50
-                              ? "text-yellow-600"
-                              : "text-green-600";
+                          ? "text-red-500"
+                          : displayQty <= 50
+                          ? "text-yellow-600"
+                          : "text-green-600";
 
                       return (
                         <FormItem>
-                          <FormLabel>Qty
+                          <FormLabel>
+                            Qty
                             <span className={cn(qtyColor)}>
                               {displayQty !== null ? `(${displayQty})` : ""}
                             </span>
@@ -617,6 +650,38 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
                       <FormLabel>Cartage</FormLabel>
                       <FormControl>
                         <Input type="number" className="h-8 w-42" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <input
+                    id="enable-tax"
+                    type="checkbox"
+                    checked={isTaxEnabled}
+                    onChange={(e) => setIsTaxEnabled(e.target.checked)}
+                  />
+                  <Label htmlFor="enable-tax" className="text-sm">
+                    Enable Tax
+                  </Label>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="taxAmount"
+                  render={() => (
+                    <FormItem className="flex justify-end">
+                      <FormLabel>Tax Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          className="h-8 w-42"
+                          disabled
+                          readOnly
+                          value={calculatedTax.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
