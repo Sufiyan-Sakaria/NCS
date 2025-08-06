@@ -1,4 +1,5 @@
 import { Godown } from "./Godown";
+import { JournalEntry } from "./Journal";
 import { Ledger } from "./Ledger";
 import { Product } from "./Product";
 import { Unit } from "./Unit";
@@ -12,13 +13,14 @@ export interface Invoice {
   date: string;
   type: InvoiceType;
   invoiceBookId: string;
-  ledgerId: string;
   ledger: Ledger;
+  ledgerId: string;
   invoiceLedgerId: string;
   invoiceLedger: Ledger;
   totalAmount: number;
   discount: number;
   cartage: number;
+  taxAmount: number;
   grandTotal: number;
   narration: string | null;
   items: InvoiceItem[];
@@ -28,6 +30,7 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
   createdByUser: User;
+  JournalEntry: JournalEntry;
 }
 
 export interface InvoiceItem {

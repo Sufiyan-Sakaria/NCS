@@ -70,7 +70,21 @@ export const getInvoiceById = async (
         updatedByUser: true,
       },
     });
-    if (!invoice) return next(new AppError("Invoice not found", 404));
+
+    if (!invoice || !invoice.ledgerId)
+      return next(new AppError("Invoice not found", 404));
+
+    // Fetch the single JournalEntry where ledgerId === invoice.ledgerId
+    const journalEntry = await prisma.journalEntry.findFirst({
+      where: {
+        invoiceId: id,
+        ledgerId: invoice.ledgerId,
+      },
+    });
+
+    // Attach it manually
+    (invoice as any).JournalEntry = journalEntry;
+
     res.status(200).json({ success: true, data: invoice });
   } catch (error) {
     next(new AppError("Failed to fetch invoice", 500));
