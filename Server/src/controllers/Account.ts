@@ -809,7 +809,252 @@ export const getTrialBalance = async (
       },
     });
 
-    const trialBalance = ledgers.map((ledger) => {
+    const trialBalance = ledgers
+      .sort((a, b) => {
+        // Split codes into numeric parts for proper sorting
+        const aCodeParts = a.code.split(".").map((part) => parseInt(part) || 0);
+        const bCodeParts = b.code.split(".").map((part) => parseInt(part) || 0);
+
+        // Compare each level of the code hierarchy
+        for (
+          let i = 0;
+          i < Math.max(aCodeParts.length, bCodeParts.length);
+          i++
+        ) {
+          const aPart = aCodeParts[i] || 0;
+          const bPart = bCodeParts[i] || 0;
+
+          if (aPart !== bPart) {
+            return aPart - bPart;
+          }
+        }
+
+        return 0;
+      })
+      .map((ledger) => {
+        const debitEntries = ledger.JournalEntry.filter(
+          (entry) => entry.type === "DEBIT"
+        );
+        const creditEntries = ledger.JournalEntry.filter(
+          (entry) => entry.type === "CREDIT"
+        );
+
+        const totalDebits = debitEntries.reduce(
+          (sum, entry) => sum + entry.amount,
+          0
+        );
+        const totalCredits = creditEntries.reduce(
+          (sum, entry) => sum + entry.amount,
+          0
+        );
+
+        // Calculate current balance from journal entries only
+        // Opening balance is already included in journal entries, so no need to add it separately
+        const calculatedBalance = totalDebits - totalCredits;
+
+        // Determine balance type based on account group nature
+        const accountGroupNature = ledger.accountGroup.nature?.toLowerCase();
+
+        // Define debit nature accounts: assets, expenses, drawings
+        // Define credit nature accounts: liabilities, capital, income
+        const debitNatureAccounts = ["Assets", "Expenses", "Drawings"];
+        const creditNatureAccounts = ["Liabilities", "Capital", "Income"];
+
+        let balanceType: string;
+        if (debitNatureAccounts.includes(accountGroupNature)) {
+          // For debit nature accounts: positive balance = debit, negative balance = credit
+          balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
+        } else if (creditNatureAccounts.includes(accountGroupNature)) {
+          // For credit nature accounts: positive balance = credit, negative balance = debit
+          balanceType = calculatedBalance >= 0 ? "CREDIT" : "DEBIT";
+        } else {
+          // Default fallback
+          balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
+        }
+
+        // Get absolute value for balance amount
+        const balanceAmount = Math.abs(calculatedBalance);
+
+        // Check if calculated balance matches stored balance (stored balance is always positive)
+        const storedBalance = parseFloat(ledger.balance?.toString() || "0");
+        const isBalanceMatched = Math.abs(balanceAmount - storedBalance) < 0.01; // Compare absolute values
+
+        return {
+          id: ledger.id,
+          name: ledger.name,
+          code: ledger.code,
+          accountGroup: ledger.accountGroup.name,
+          accountGroupNature: accountGroupNature,
+          openingBalance: parseFloat(ledger.openingBalance.toString()),
+          currentBalance: calculatedBalance,
+          balanceAmount: balanceAmount,
+          balanceType: balanceType,
+          isBalanceMatched: isBalanceMatched,
+          storedBalance: storedBalance,
+        };
+      });
+
+    // Calculate totals based on balance type
+    const totalDebitBalance = trialBalance
+      .filter((ledger) => ledger.balanceType === "DEBIT")
+      .reduce((sum, ledger) => sum + ledger.balanceAmount, 0);
+
+    const totalCreditBalance = trialBalance
+      .filter((ledger) => ledger.balanceType === "CREDIT")
+      .reduce((sum, ledger) => sum + ledger.balanceAmount, 0);
+
+    // Check for any balance mismatches
+    const balanceMismatches = trialBalance.filter(
+      (ledger) => !ledger.isBalanceMatched
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ledgers: trialBalance,
+        totals: {
+          totalDebitBalance,
+          totalCreditBalance,
+          difference: totalDebitBalance - totalCreditBalance,
+        },
+        balanceValidation: {
+          hasBalanceMismatches: balanceMismatches.length > 0,
+          mismatchedLedgers: balanceMismatches.map((ledger) => ({
+            id: ledger.id,
+            name: ledger.name,
+            calculated: ledger.currentBalance,
+            stored: ledger.storedBalance,
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET trading A/c
+// Helper function to calculate opening stock value at the start of financial year
+const calculateOpeningStock = async (branchId: string, startDate: Date) => {
+  // Get all products for the branch
+  const products = await prisma.product.findMany({
+    where: { branchId, isActive: true },
+    include: {
+      ProductLedgerEntry: {
+        where: {
+          date: { lt: startDate }, // Entries before financial year start
+          isActive: true,
+        },
+        orderBy: { date: "desc" },
+      },
+    },
+  });
+
+  let totalOpeningStockValue = 0;
+
+  for (const product of products) {
+    // Calculate stock quantity at the start of financial year
+    let stockQty = 0;
+    let lastRate = product.previousPurchaseRate || 0;
+
+    for (const entry of product.ProductLedgerEntry) {
+      if (entry.type === "IN") {
+        stockQty += entry.qty;
+        lastRate = entry.rate; // Update rate from latest purchase
+      } else {
+        stockQty -= entry.qty;
+      }
+    }
+
+    // Add to total opening stock value
+    if (stockQty > 0) {
+      totalOpeningStockValue += stockQty * lastRate;
+    }
+  }
+
+  return totalOpeningStockValue;
+};
+
+// Helper function to calculate closing stock value at current date
+const calculateClosingStock = async (branchId: string) => {
+  // Get current stock from ProductStock table
+  const currentStocks = await prisma.productStock.findMany({
+    where: {
+      product: { branchId },
+      isActive: true,
+      qty: { gt: 0 },
+    },
+    include: {
+      product: true,
+    },
+  });
+
+  let totalClosingStockValue = 0;
+
+  for (const stock of currentStocks) {
+    // Use the latest purchase rate or sale rate
+    const rate =
+      stock.product.previousPurchaseRate || stock.product.saleRate || 0;
+    totalClosingStockValue += stock.qty * rate;
+  }
+
+  return totalClosingStockValue;
+};
+
+export const getTradingAccount = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { branchId, financialYearId } = req.params;
+
+    // Get all ledgers with their journal entries for the financial year
+    const ledgers = await prisma.ledger.findMany({
+      where: {
+        branchId,
+        isActive: true,
+      },
+      include: {
+        accountGroup: true,
+        JournalEntry: {
+          where: {
+            isActive: true,
+            journal: {
+              financialYearId,
+              isActive: true,
+            },
+          },
+        },
+      },
+    });
+
+    // Get financial year details to determine opening stock
+    const financialYear = await prisma.financialYear.findUnique({
+      where: { id: financialYearId },
+    });
+
+    if (!financialYear) {
+      throw new Error("Financial year not found");
+    }
+
+    // Calculate opening stock from product stocks at the beginning of financial year
+    const openingStockValue = await calculateOpeningStock(
+      branchId,
+      financialYear.startDate
+    );
+
+    // Calculate closing stock from current product stocks
+    const closingStockValue = await calculateClosingStock(branchId);
+
+    const filteredLedgers = ledgers.filter((ledger) =>
+      ["Expenses", "Income"].includes(ledger.accountGroup.nature)
+    );
+
+    console.log(filteredLedgers);
+
+    // Calculate ledger balances and categorize them
+    const processedLedgers = filteredLedgers.map((ledger) => {
       const debitEntries = ledger.JournalEntry.filter(
         (entry) => entry.type === "DEBIT"
       );
@@ -826,41 +1071,144 @@ export const getTrialBalance = async (
         0
       );
 
-      const currentBalance =
-        parseFloat(ledger.openingBalance.toString()) +
-        totalDebits -
-        totalCredits;
+      const netBalance = totalDebits - totalCredits;
+      const balanceAmount = Math.abs(netBalance);
 
       return {
         id: ledger.id,
         name: ledger.name,
         code: ledger.code,
         accountGroup: ledger.accountGroup.name,
+        accountGroupType: ledger.accountGroup.groupType,
+        accountGroupNature: ledger.accountGroup.nature,
         openingBalance: parseFloat(ledger.openingBalance.toString()),
+        netBalance: netBalance,
+        balanceAmount: balanceAmount,
         totalDebits,
         totalCredits,
-        currentBalance,
       };
     });
 
-    const totalDebits = trialBalance.reduce(
-      (sum, ledger) => sum + ledger.totalDebits,
-      0
-    );
-    const totalCredits = trialBalance.reduce(
-      (sum, ledger) => sum + ledger.totalCredits,
-      0
-    );
+    // Categorize ledgers for trading account by AccountGroupType
+    const tradingAccountData = {
+      // Debit Side
+      purchases: processedLedgers.filter((ledger) => {
+        const matches = ledger.accountGroupType === "PurchaseAccounts";
+        return matches;
+      }),
+      directExpenses: processedLedgers.filter((ledger) => {
+        const matches = ledger.accountGroupType === "DirectExpenses";
+        return matches;
+      }),
+
+      // Credit Side
+      sales: processedLedgers.filter((ledger) => {
+        const matches = ledger.accountGroupType === "SalesAccounts";
+        return matches;
+      }),
+      directIncomes: processedLedgers.filter((ledger) => {
+        const matches = ledger.accountGroupType === "DirectIncomes";
+        return matches;
+      }),
+    };
+
+    // Calculate totals for each category (only include non-zero balances)
+    const calculateCategoryTotal = (category: any[]) => {
+      return category.reduce((sum, ledger) => sum + ledger.balanceAmount, 0);
+    };
+
+    const totals = {
+      openingStock: openingStockValue,
+      purchases: calculateCategoryTotal(tradingAccountData.purchases),
+      directExpenses: calculateCategoryTotal(tradingAccountData.directExpenses),
+      sales: calculateCategoryTotal(tradingAccountData.sales),
+      directIncomes: calculateCategoryTotal(tradingAccountData.directIncomes),
+      closingStock: closingStockValue,
+    };
+
+    // Calculate Cost of Goods Sold (COGS)
+    const costOfGoodsSold =
+      totals.openingStock +
+      totals.purchases +
+      totals.directExpenses -
+      totals.closingStock;
+
+    // Calculate Gross Profit/Loss
+    const totalSalesIncome = totals.sales + totals.directIncomes;
+    const grossProfit = totalSalesIncome - costOfGoodsSold;
+    const isGrossProfit = grossProfit >= 0;
+
+    // Calculate debit and credit side totals for balancing
+    const debitSideTotal =
+      totals.openingStock +
+      totals.purchases +
+      totals.directExpenses +
+      (isGrossProfit ? grossProfit : 0);
+    const creditSideTotal =
+      totals.sales +
+      totals.directIncomes +
+      totals.closingStock +
+      (!isGrossProfit ? Math.abs(grossProfit) : 0);
+
+    // Prepare the trading account structure
+    const tradingAccount = {
+      debitSide: {
+        openingStock: {
+          amount: totals.openingStock,
+          label: "To Opening Stock",
+        },
+        purchases: {
+          ledgers: tradingAccountData.purchases,
+          total: totals.purchases,
+        },
+        directExpenses: {
+          ledgers: tradingAccountData.directExpenses,
+          total: totals.directExpenses,
+        },
+        grossProfit: isGrossProfit
+          ? {
+              amount: grossProfit,
+              label: "To Gross Profit c/d",
+            }
+          : null,
+        total: debitSideTotal,
+      },
+      creditSide: {
+        sales: {
+          ledgers: tradingAccountData.sales,
+          total: totals.sales,
+        },
+        directIncomes: {
+          ledgers: tradingAccountData.directIncomes,
+          total: totals.directIncomes,
+        },
+        closingStock: {
+          amount: totals.closingStock,
+          label: "By Closing Stock",
+        },
+        grossLoss: !isGrossProfit
+          ? {
+              amount: Math.abs(grossProfit),
+              label: "By Gross Loss c/d",
+            }
+          : null,
+        total: creditSideTotal,
+      },
+      summary: {
+        costOfGoodsSold,
+        grossProfit,
+        isGrossProfit,
+        isBalanced: Math.abs(debitSideTotal - creditSideTotal) < 0.01,
+      },
+    };
 
     res.status(200).json({
       success: true,
       data: {
-        ledgers: trialBalance,
-        totals: {
-          totalDebits,
-          totalCredits,
-          difference: totalDebits - totalCredits,
-        },
+        tradingAccount,
+        financialYearId,
+        branchId,
+        generatedAt: new Date().toISOString(),
       },
     });
   } catch (error) {

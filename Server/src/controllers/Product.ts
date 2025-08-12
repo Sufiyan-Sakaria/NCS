@@ -127,7 +127,106 @@ export const getProductsByBranch = async (
   }
 };
 
-// CREATE product
+// Helper function to generate next ledger code based on parent group code
+const generateNextLedgerCode = async (
+  tx: any,
+  parentCode: string,
+  branchId: string
+): Promise<string> => {
+  // Find all existing ledgers and subgroups under this parent
+  const [existingLedgers, existingSubGroups] = await Promise.all([
+    tx.ledger.findMany({
+      where: {
+        branchId,
+        accountGroup: {
+          code: { startsWith: parentCode },
+        },
+      },
+      select: { code: true },
+    }),
+    tx.accountGroup.findMany({
+      where: {
+        branchId,
+        code: { startsWith: parentCode },
+        NOT: { code: parentCode }, // Fixed: Use NOT instead of 'not'
+      },
+      select: { code: true },
+    }),
+  ]);
+
+  // Combine all codes and extract the numeric suffixes
+  const allCodes = [
+    ...existingLedgers.map((l: { code: string }) => l.code), // Fixed: Added type annotation
+    ...existingSubGroups.map((g: { code: string }) => g.code), // Fixed: Added type annotation
+  ];
+
+  // Filter codes that match the pattern (parentCode.X)
+  const directChildCodes = allCodes.filter((code) => {
+    const parts = code.split(".");
+    const parentParts = parentCode.split(".");
+    return (
+      parts.length === parentParts.length + 1 &&
+      code.startsWith(parentCode + ".")
+    );
+  });
+
+  // Extract numeric suffixes and find the next available number
+  const usedNumbers = directChildCodes
+    .map((code) => {
+      const lastPart = code.split(".").pop();
+      return parseInt(lastPart || "0", 10);
+    })
+    .filter((num) => !isNaN(num))
+    .sort((a, b) => a - b);
+
+  // Find the next available number
+  let nextNumber = 1;
+  for (const num of usedNumbers) {
+    if (num === nextNumber) {
+      nextNumber++;
+    } else {
+      break;
+    }
+  }
+
+  return `${parentCode}.${nextNumber}`;
+};
+
+// Helper function to update parent account group balances recursively
+const updateParentGroupBalance = async (
+  tx: any,
+  accountGroupId: string,
+  amount: number,
+  userId: string
+): Promise<void> => {
+  const accountGroup = await tx.accountGroup.findUnique({
+    where: { id: accountGroupId },
+    select: {
+      id: true,
+      balance: true,
+      parentId: true,
+    },
+  });
+
+  if (!accountGroup) return;
+
+  // Update current account group balance
+  const currentBalance = parseFloat(accountGroup.balance?.toString() || "0");
+  await tx.accountGroup.update({
+    where: { id: accountGroup.id },
+    data: {
+      balance: currentBalance + amount,
+      updatedBy: userId,
+      updatedAt: new Date(),
+    },
+  });
+
+  // Recursively update parent group balance if exists
+  if (accountGroup.parentId) {
+    await updateParentGroupBalance(tx, accountGroup.parentId, amount, userId);
+  }
+};
+
 export const createProduct = async (
   req: Request,
   res: Response,
@@ -166,6 +265,7 @@ export const createProduct = async (
 
       let totalQty = 0;
       let totalThaan = 0;
+      let totalStockValue = 0;
 
       // 2. If initial stocks provided
       if (Array.isArray(initialStocks) && initialStocks.length > 0) {
@@ -253,6 +353,7 @@ export const createProduct = async (
           runningThaan += thaan;
           totalQty += qty;
           totalThaan += thaan;
+          totalStockValue += qty * rate;
         }
 
         const totalValue = Array.from(stockMap.values()).reduce(
@@ -271,9 +372,171 @@ export const createProduct = async (
             previousPurchaseRate: averageRate,
           },
         });
+
+        // 6. Handle Journal Entry for Opening Stock (if stock value > 0)
+        if (totalStockValue > 0) {
+          // Find or create inventory ledger
+          let inventoryLedger = await tx.ledger.findFirst({
+            where: {
+              branchId,
+              type: "Inventory", // Assuming this is the enum value for inventory
+              isActive: true,
+            },
+          });
+
+          // If no inventory ledger exists, create one
+          if (!inventoryLedger) {
+            // Find the inventory account group (you might need to adjust this based on your account group structure)
+            const inventoryAccountGroup = await tx.accountGroup.findFirst({
+              where: {
+                name: { contains: "Inventory", mode: "insensitive" },
+                // OR you might want to use a specific code or id
+              },
+            });
+
+            if (!inventoryAccountGroup) {
+              throw new AppError("Inventory account group not found", 400);
+            }
+
+            inventoryLedger = await tx.ledger.create({
+              data: {
+                name: "Inventory",
+                code: `INV-${branchId.slice(-4)}`, // Generate a unique code
+                type: "Inventory",
+                phone1: "",
+                phone2: "",
+                address: "",
+                balance: 0,
+                openingBalance: 0,
+                accountGroupId: inventoryAccountGroup.id,
+                branchId,
+                createdBy: userId,
+              },
+            });
+          }
+
+          // Find or create Opening Balance Equity ledger for the credit entry
+          let openingBalanceLedger = await tx.ledger.findFirst({
+            where: {
+              branchId,
+              OR: [
+                { name: { contains: "Opening Balance", mode: "insensitive" } },
+                { name: { contains: "Owner Equity", mode: "insensitive" } },
+                { name: { contains: "Capital", mode: "insensitive" } },
+              ],
+              isActive: true,
+            },
+          });
+
+          // If no opening balance ledger exists, create one
+          if (!openingBalanceLedger) {
+            // Find equity account group
+            const equityAccountGroup = await tx.accountGroup.findFirst({
+              where: {
+                OR: [
+                  { name: { contains: "Equity", mode: "insensitive" } },
+                  { name: { contains: "Capital", mode: "insensitive" } },
+                  { name: { contains: "Owner", mode: "insensitive" } },
+                ],
+              },
+            });
+
+            if (!equityAccountGroup) {
+              throw new AppError("Equity account group not found", 400);
+            }
+
+            openingBalanceLedger = await tx.ledger.create({
+              data: {
+                name: "Opening Balance Equity",
+                code: `OBE-${branchId.slice(-4)}`, // Generate a unique code
+                type: "OwnerCapital", 
+                phone1: "",
+                phone2: "",
+                address: "",
+                balance: 0,
+                openingBalance: 0,
+                accountGroupId: equityAccountGroup.id,
+                branchId,
+                createdBy: userId,
+              },
+            });
+          }
+
+          // Get the journal book for this branch and financial year
+          const journalBook = await tx.journalBook.findFirst({
+            where: {
+              branchId,
+              isActive: true,
+            },
+            orderBy: { createdAt: "desc" },
+          });
+
+          if (!journalBook) {
+            throw new AppError("No active journal book found for branch", 400);
+          }
+
+          // Get current balances
+          const inventoryCurrentBalance = parseFloat(
+            inventoryLedger.balance.toString()
+          );
+          const equityCurrentBalance = parseFloat(
+            openingBalanceLedger.balance.toString()
+          );
+
+          const currentDate = new Date();
+          const narration = `Opening Stock for Product: ${product.name}`;
+
+          // Create DEBIT journal entry for Inventory (Asset increase)
+          await tx.journalEntry.create({
+            data: {
+              date: currentDate,
+              journalBookId: journalBook.id,
+              ledgerId: inventoryLedger.id,
+              type: "DEBIT",
+              amount: totalStockValue,
+              preBalance: inventoryCurrentBalance,
+              narration,
+              createdBy: userId,
+            },
+          });
+
+          // Create CREDIT journal entry for Opening Balance Equity (Equity increase)
+          await tx.journalEntry.create({
+            data: {
+              date: currentDate,
+              journalBookId: journalBook.id,
+              ledgerId: openingBalanceLedger.id,
+              type: "CREDIT",
+              amount: totalStockValue,
+              preBalance: equityCurrentBalance,
+              narration,
+              createdBy: userId,
+            },
+          });
+
+          // Update inventory ledger balance (Debit increases asset balance)
+          await tx.ledger.update({
+            where: { id: inventoryLedger.id },
+            data: {
+              balance: inventoryCurrentBalance + totalStockValue,
+              updatedBy: userId,
+              updatedAt: new Date(),
+            },
+          });
+
+          // Update opening balance equity ledger balance (Credit increases equity balance)
+          await tx.ledger.update({
+            where: { id: openingBalanceLedger.id },
+            data: {
+              balance: equityCurrentBalance + totalStockValue,
+              updatedBy: userId,
+              updatedAt: new Date(),
+            },
+          });
+        }
       }
 
-      // 6. Return full product details
+      // 7. Return full product details
       const updatedProduct = await tx.product.findUnique({
         where: { id: product.id },
         include: {

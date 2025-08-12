@@ -474,6 +474,7 @@ enum LedgerType {
   Bank
   AccountsReceivable
   FixedAssets
+  Inventory
   PrepaidExpenses
   AdvanceToSuppliers
   AccountsPayable

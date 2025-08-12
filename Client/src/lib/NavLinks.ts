@@ -74,4 +74,14 @@ export const navLinks: Navlink[] = [
     icon: Ticket,
     url: "/dashboard/voucher",
   },
+  {
+    label: "Trail Balance",
+    icon: Receipt,
+    url: "/report/trail-balance",
+  },
+  {
+    label: "Trading A/c",
+    icon: Receipt,
+    url: "/report/trading-account",
+  },
 ];

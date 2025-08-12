@@ -1,6 +1,8 @@
 import api from "@/lib/axios";
 import { AccountGroup, AccountGroupType, Nature } from "@/types/AccountGroup";
 import { Ledger } from "@/types/Ledger";
+import { TradingAccountData, TradingAccountResponse } from "@/types/TradingAc";
+import { TrialBalance } from "@/types/TrailBalance";
 import { AxiosResponse } from "axios";
 
 // ============ Type ============
@@ -164,4 +166,26 @@ export const createDefaultAccounts = async (
   payload: CreateDefaultAccountsPayload,
 ): Promise<void> => {
   await api.post("/account/structure/default", payload);
+};
+
+// GET /account/trail-balance/:branchId/:financialYearId
+export const getTrialBalance = async (
+  branchId: string,
+  financialYearId: string,
+): Promise<TrialBalance> => {
+  const response: AxiosResponse<{ data: TrialBalance }> = await api.get(
+    `/account/trial-balance/${branchId}/${financialYearId}`,
+  );
+  return response.data.data;
+};
+
+// GET /account/trading-ac/:branchId/:financialYearId
+export const getTradingAccount = async (
+  branchId: string,
+  financialYearId: string,
+): Promise<TradingAccountData> => {
+  const response: AxiosResponse<TradingAccountResponse> = await api.get(
+    `/account/trading-ac/${branchId}/${financialYearId}`,
+  );
+  return response.data.data;
 };

@@ -14,6 +14,7 @@ import {
   getTrialBalance,
   getLedgerBookByLedgerId,
   getHierarchicalAccountsByBranch,
+  getTradingAccount,
 } from "../controllers/Account";
 
 const router = Router();
@@ -37,6 +38,7 @@ router.delete("/ledgers/:id", deleteLedger);
 
 // Trial Balance & Ledger Book
 router.get("/trial-balance/:branchId/:financialYearId", getTrialBalance);
+router.get("/trading-ac/:branchId/:financialYearId", getTradingAccount);
 router.get("/ledger-book/:ledgerId", getLedgerBookByLedgerId);
 
 router.get("/hierarchy/:branchId", getHierarchicalAccountsByBranch);
