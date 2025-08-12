@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../generated/prisma";
+import { Prisma, PrismaClient } from "../../generated/prisma";
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
 
@@ -148,7 +148,7 @@ const generateNextLedgerCode = async (
       where: {
         branchId,
         code: { startsWith: parentCode },
-        NOT: { code: parentCode }, // Fixed: Use NOT instead of 'not'
+        NOT: { code: parentCode },
       },
       select: { code: true },
     }),
@@ -193,8 +193,9 @@ const generateNextLedgerCode = async (
 };
 
 // Helper function to update parent account group balances recursively
+// Keep recursion inside the same transaction
 const updateParentGroupBalance = async (
-  tx: any,
+  tx: Prisma.TransactionClient,
   accountGroupId: string,
   amount: number,
   userId: string
@@ -379,18 +380,17 @@ export const createProduct = async (
           let inventoryLedger = await tx.ledger.findFirst({
             where: {
               branchId,
-              type: "Inventory", // Assuming this is the enum value for inventory
+              type: "Inventory",
               isActive: true,
             },
           });
 
           // If no inventory ledger exists, create one
           if (!inventoryLedger) {
-            // Find the inventory account group (you might need to adjust this based on your account group structure)
+            // Find the inventory account group
             const inventoryAccountGroup = await tx.accountGroup.findFirst({
               where: {
-                name: { contains: "Inventory", mode: "insensitive" },
-                // OR you might want to use a specific code or id
+                groupType: "CurrentAssets",
               },
             });
 
@@ -398,10 +398,16 @@ export const createProduct = async (
               throw new AppError("Inventory account group not found", 400);
             }
 
+            const code = await generateNextLedgerCode(
+              tx,
+              inventoryAccountGroup.code,
+              branchId
+            );
+
             inventoryLedger = await tx.ledger.create({
               data: {
                 name: "Inventory",
-                code: `INV-${branchId.slice(-4)}`, // Generate a unique code
+                code,
                 type: "Inventory",
                 phone1: "",
                 phone2: "",
@@ -415,47 +421,45 @@ export const createProduct = async (
             });
           }
 
-          // Find or create Opening Balance Equity ledger for the credit entry
-          let openingBalanceLedger = await tx.ledger.findFirst({
+          // Find or create Capital ledger for the credit entry
+          let capitalLedger = await tx.ledger.findFirst({
             where: {
               branchId,
-              OR: [
-                { name: { contains: "Opening Balance", mode: "insensitive" } },
-                { name: { contains: "Owner Equity", mode: "insensitive" } },
-                { name: { contains: "Capital", mode: "insensitive" } },
-              ],
+              type: "OwnerCapital",
               isActive: true,
             },
           });
 
           // If no opening balance ledger exists, create one
-          if (!openingBalanceLedger) {
+          if (!capitalLedger) {
             // Find equity account group
-            const equityAccountGroup = await tx.accountGroup.findFirst({
+            const capitalAccountGroup = await tx.accountGroup.findFirst({
               where: {
-                OR: [
-                  { name: { contains: "Equity", mode: "insensitive" } },
-                  { name: { contains: "Capital", mode: "insensitive" } },
-                  { name: { contains: "Owner", mode: "insensitive" } },
-                ],
+                groupType: "CapitalAccount",
               },
             });
 
-            if (!equityAccountGroup) {
-              throw new AppError("Equity account group not found", 400);
+            if (!capitalAccountGroup) {
+              throw new AppError("Capital account group not found", 400);
             }
 
-            openingBalanceLedger = await tx.ledger.create({
+            const capitalCode = await generateNextLedgerCode(
+              tx,
+              capitalAccountGroup.code,
+              branchId
+            );
+
+            capitalLedger = await tx.ledger.create({
               data: {
-                name: "Opening Balance Equity",
-                code: `OBE-${branchId.slice(-4)}`, // Generate a unique code
-                type: "OwnerCapital", 
+                name: "Owner's Capital",
+                code: capitalCode,
+                type: "OwnerCapital",
                 phone1: "",
                 phone2: "",
                 address: "",
                 balance: 0,
                 openingBalance: 0,
-                accountGroupId: equityAccountGroup.id,
+                accountGroupId: capitalAccountGroup.id,
                 branchId,
                 createdBy: userId,
               },
@@ -480,7 +484,7 @@ export const createProduct = async (
             inventoryLedger.balance.toString()
           );
           const equityCurrentBalance = parseFloat(
-            openingBalanceLedger.balance.toString()
+            capitalLedger.balance.toString()
           );
 
           const currentDate = new Date();
@@ -505,7 +509,7 @@ export const createProduct = async (
             data: {
               date: currentDate,
               journalBookId: journalBook.id,
-              ledgerId: openingBalanceLedger.id,
+              ledgerId: capitalLedger.id,
               type: "CREDIT",
               amount: totalStockValue,
               preBalance: equityCurrentBalance,
@@ -520,19 +524,31 @@ export const createProduct = async (
             data: {
               balance: inventoryCurrentBalance + totalStockValue,
               updatedBy: userId,
-              updatedAt: new Date(),
             },
           });
 
           // Update opening balance equity ledger balance (Credit increases equity balance)
           await tx.ledger.update({
-            where: { id: openingBalanceLedger.id },
+            where: { id: capitalLedger.id },
             data: {
               balance: equityCurrentBalance + totalStockValue,
               updatedBy: userId,
-              updatedAt: new Date(),
             },
           });
+
+          // Update balance of their parents account
+          await updateParentGroupBalance(
+            tx,
+            inventoryLedger.accountGroupId,
+            totalStockValue,
+            userId
+          );
+          await updateParentGroupBalance(
+            tx,
+            capitalLedger.accountGroupId,
+            totalStockValue,
+            userId
+          );
         }
       }
 
