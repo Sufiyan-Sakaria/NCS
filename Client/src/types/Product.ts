@@ -15,6 +15,7 @@ export type Product = {
   category: Category;
   branchId: string;
   saleRate: number;
+  previousPurchaseRate?: number;
   qty: number;
   thaan: number;
   ProductStock: ProductStock[];

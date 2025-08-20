@@ -96,7 +96,7 @@ export default function AddInvoiceForm({ branchId }: { branchId: string }) {
   const watchCartage = form.watch("cartage") || 0;
 
   const totalAmount = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
-  const taxableAmount = totalAmount - watchDiscount + watchCartage;
+  const taxableAmount = totalAmount - Number(watchDiscount) + Number(watchCartage);
   const calculatedTax = isTaxEnabled ? (taxableAmount * (gstPercent || 0)) / 100 : 0;
   const grandTotal = taxableAmount + calculatedTax;
 

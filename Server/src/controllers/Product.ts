@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "../../generated/prisma";
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
+import {generateNextCode} from "../utils/GenerateNextCode";
 
 const prisma = new PrismaClient();
 
@@ -125,71 +126,6 @@ export const getProductsByBranch = async (
   } catch (error) {
     next(error);
   }
-};
-
-// Helper function to generate next ledger code based on parent group code
-const generateNextLedgerCode = async (
-  tx: any,
-  parentCode: string,
-  branchId: string
-): Promise<string> => {
-  // Find all existing ledgers and subgroups under this parent
-  const [existingLedgers, existingSubGroups] = await Promise.all([
-    tx.ledger.findMany({
-      where: {
-        branchId,
-        accountGroup: {
-          code: { startsWith: parentCode },
-        },
-      },
-      select: { code: true },
-    }),
-    tx.accountGroup.findMany({
-      where: {
-        branchId,
-        code: { startsWith: parentCode },
-        NOT: { code: parentCode },
-      },
-      select: { code: true },
-    }),
-  ]);
-
-  // Combine all codes and extract the numeric suffixes
-  const allCodes = [
-    ...existingLedgers.map((l: { code: string }) => l.code), // Fixed: Added type annotation
-    ...existingSubGroups.map((g: { code: string }) => g.code), // Fixed: Added type annotation
-  ];
-
-  // Filter codes that match the pattern (parentCode.X)
-  const directChildCodes = allCodes.filter((code) => {
-    const parts = code.split(".");
-    const parentParts = parentCode.split(".");
-    return (
-      parts.length === parentParts.length + 1 &&
-      code.startsWith(parentCode + ".")
-    );
-  });
-
-  // Extract numeric suffixes and find the next available number
-  const usedNumbers = directChildCodes
-    .map((code) => {
-      const lastPart = code.split(".").pop();
-      return parseInt(lastPart || "0", 10);
-    })
-    .filter((num) => !isNaN(num))
-    .sort((a, b) => a - b);
-
-  // Find the next available number
-  let nextNumber = 1;
-  for (const num of usedNumbers) {
-    if (num === nextNumber) {
-      nextNumber++;
-    } else {
-      break;
-    }
-  }
-
-  return `${parentCode}.${nextNumber}`;
 };
 
 // Helper function to update parent account group balances recursively
@@ -398,7 +334,7 @@ export const createProduct = async (
               throw new AppError("Inventory account group not found", 400);
             }
 
-            const code = await generateNextLedgerCode(
+            const code = await generateNextCode(
               tx,
               inventoryAccountGroup.code,
               branchId
@@ -433,17 +369,17 @@ export const createProduct = async (
           // If no opening balance ledger exists, create one
           if (!capitalLedger) {
             // Find equity account group
-            const capitalAccountGroup = await tx.accountGroup.findFirst({
-              where: {
-                groupType: "CapitalAccount",
-              },
-            });
+              const capitalAccountGroup = await tx.accountGroup.findFirst({
+                  where: {
+                      name: "Capital",
+                  },
+              });
 
-            if (!capitalAccountGroup) {
-              throw new AppError("Capital account group not found", 400);
-            }
+              if (!capitalAccountGroup) {
+                  throw new AppError("Capital account group not found", 400);
+              }
 
-            const capitalCode = await generateNextLedgerCode(
+            const capitalCode = await generateNextCode(
               tx,
               capitalAccountGroup.code,
               branchId

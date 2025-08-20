@@ -112,31 +112,33 @@ const Page: NextPage = () => {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="text-center w-14 border-r">HSN</TableHead>
-              <TableHead className="border-r">Name</TableHead>
-              <TableHead className="border-r">Sale Rate</TableHead>
-              <TableHead className="border-r">Qty</TableHead>
-              <TableHead className="border-r">Thaan</TableHead>
-              <TableHead className="border-r">Value</TableHead>
-              <TableHead className="border-r">Status</TableHead>
+                <TableHead className="border-r text-center">Name</TableHead>
+                <TableHead className="border-r text-center">Brand</TableHead>
+                <TableHead className="border-r text-center">Category</TableHead>
+                <TableHead className="border-r text-center">Cost Price</TableHead>
+                <TableHead className="border-r text-center">Sale Rate</TableHead>
+                <TableHead className="border-r text-center">Qty</TableHead>
+                <TableHead className="border-r text-center">Thaan</TableHead>
+              <TableHead className="border-r text-center">Value</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {products.map((product) => {
-              const value = product.qty * product.saleRate;
+              const value = product.qty * product.previousPurchaseRate!;
               return (
                 <TableRow key={product.id}>
                   <TableCell className="border-r text-center">{product.hsn}</TableCell>
-                  <TableCell className="border-r font-medium">{product.name}</TableCell>
-                  <TableCell className="border-r">
+                  <TableCell className="border-r px-4">{product.name}</TableCell>
+                    <TableCell className="border-r text-center">{product.brand.name}</TableCell>
+                    <TableCell className="border-r text-center">{product.category.name}</TableCell>
+                    <TableCell className="border-r text-center">{currency.format(product.previousPurchaseRate!)}</TableCell>
+                  <TableCell className="border-r text-center">
                     {currency.format(product.saleRate)}
                   </TableCell>
-                  <TableCell className="border-r">{product.qty}</TableCell>
-                  <TableCell className="border-r">{product.thaan}</TableCell>
-                  <TableCell className="border-r">{currency.format(value)}</TableCell>
-                  <TableCell className="border-r">
-                    {product.isActive ? "Active" : "Inactive"}
-                  </TableCell>
+                  <TableCell className="border-r text-center">{product.qty}</TableCell>
+                  <TableCell className="border-r text-center">{product.thaan}</TableCell>
+                  <TableCell className="border-r text-center">{currency.format(value)}</TableCell>
                   <TableCell className="text-center">
                     <DropdownMenu>
                       <DropdownMenuTrigger className="focus:outline-none hover:bg-muted p-1 rounded-md">
