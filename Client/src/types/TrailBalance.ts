@@ -5,19 +5,13 @@ export interface TrialBalanceLedger {
   name: string;
   code: string;
   accountGroup: string;
-  accountGroupNature: "assets" | "liabilities" | "capital" | "expenses" | "income" | "drawings";
+  accountGroupNature: "Assets" | "Liabilities" | "Capital" | "Expenses" | "Income" | "Drawings";
   openingBalance: number;
   currentBalance: number;
   balanceAmount: number;
   balanceType: "DEBIT" | "CREDIT";
   isBalanceMatched: boolean;
   storedBalance: number;
-}
-
-export interface TrialBalanceTotals {
-  totalDebitBalance: number;
-  totalCreditBalance: number;
-  difference: number;
 }
 
 export interface BalanceMismatchedLedger {
@@ -34,6 +28,5 @@ export interface BalanceValidation {
 
 export interface TrialBalance {
   ledgers: TrialBalanceLedger[];
-  totals: TrialBalanceTotals;
   balanceValidation: BalanceValidation;
 }

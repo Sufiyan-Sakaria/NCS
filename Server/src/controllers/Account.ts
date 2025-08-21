@@ -786,151 +786,137 @@ export const createDefaultAccounts = async (
 
 // GET ledger balance and trial balance
 export const getTrialBalance = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
+    req: Request,
+    res: Response,
+    next: NextFunction
 ) => {
-  try {
-    const { branchId, financialYearId } = req.params;
+    try {
+        const { branchId, financialYearId } = req.params;
 
-    const ledgers = await prisma.ledger.findMany({
-      where: { branchId, isActive: true },
-      include: {
-        accountGroup: true,
-        JournalEntry: {
-          where: {
-            isActive: true,
-            journal: {
-              financialYearId,
-              isActive: true,
+        const ledgers = await prisma.ledger.findMany({
+            where: { branchId, isActive: true },
+            include: {
+                accountGroup: true,
+                JournalEntry: {
+                    where: {
+                        isActive: true,
+                        journal: {
+                            financialYearId,
+                            isActive: true,
+                        },
+                    },
+                },
             },
-          },
-        },
-      },
-    });
+        });
 
-    const trialBalance = ledgers
-      .sort((a, b) => {
-        // Split codes into numeric parts for proper sorting
-        const aCodeParts = a.code.split(".").map((part) => parseInt(part) || 0);
-        const bCodeParts = b.code.split(".").map((part) => parseInt(part) || 0);
+        const trialBalance = ledgers
+            .sort((a, b) => {
+                // Split codes into numeric parts for proper sorting
+                const aCodeParts = a.code.split(".").map((part) => parseInt(part) || 0);
+                const bCodeParts = b.code.split(".").map((part) => parseInt(part) || 0);
 
-        // Compare each level of the code hierarchy
-        for (
-          let i = 0;
-          i < Math.max(aCodeParts.length, bCodeParts.length);
-          i++
-        ) {
-          const aPart = aCodeParts[i] || 0;
-          const bPart = bCodeParts[i] || 0;
+                // Compare each level of the code hierarchy
+                for (
+                    let i = 0;
+                    i < Math.max(aCodeParts.length, bCodeParts.length);
+                    i++
+                ) {
+                    const aPart = aCodeParts[i] || 0;
+                    const bPart = bCodeParts[i] || 0;
 
-          if (aPart !== bPart) {
-            return aPart - bPart;
-          }
-        }
+                    if (aPart !== bPart) {
+                        return aPart - bPart;
+                    }
+                }
 
-        return 0;
-      })
-      .map((ledger) => {
-        const debitEntries = ledger.JournalEntry.filter(
-          (entry) => entry.type === "DEBIT"
+                return 0;
+            })
+            .map((ledger) => {
+                const debitEntries = ledger.JournalEntry.filter(
+                    (entry) => entry.type === "DEBIT"
+                );
+                const creditEntries = ledger.JournalEntry.filter(
+                    (entry) => entry.type === "CREDIT"
+                );
+
+                const totalDebits = debitEntries.reduce(
+                    (sum, entry) => sum + entry.amount,
+                    0
+                );
+                const totalCredits = creditEntries.reduce(
+                    (sum, entry) => sum + entry.amount,
+                    0
+                );
+
+                // Calculate current balance from journal entries only
+                // Opening balance is already included in journal entries, so no need to add it separately
+                const calculatedBalance = totalDebits - totalCredits;
+
+                // Determine balance type based on account group nature
+                const accountGroupNature = ledger.accountGroup.nature?.toLowerCase();
+
+                // Define debit nature accounts: assets, expenses, drawings
+                // Define credit nature accounts: liabilities, capital, income
+                const debitNatureAccounts = ["Assets", "Expenses", "Drawings"];
+                const creditNatureAccounts = ["Liabilities", "Capital", "Income"];
+
+                let balanceType: string;
+                if (debitNatureAccounts.includes(accountGroupNature)) {
+                    // For debit nature accounts: positive balance = debit, negative balance = credit
+                    balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
+                } else if (creditNatureAccounts.includes(accountGroupNature)) {
+                    // For credit nature accounts: positive balance = credit, negative balance = debit
+                    balanceType = calculatedBalance >= 0 ? "CREDIT" : "DEBIT";
+                } else {
+                    // Default fallback
+                    balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
+                }
+
+                // Get absolute value for balance amount
+                const balanceAmount = Math.abs(calculatedBalance);
+
+                // Check if calculated balance matches stored balance (stored balance is always positive)
+                const storedBalance = parseFloat(ledger.balance?.toString() || "0");
+                const isBalanceMatched = Math.abs(balanceAmount - storedBalance) < 0.01; // Compare absolute values
+
+                return {
+                    id: ledger.id,
+                    name: ledger.name,
+                    code: ledger.code,
+                    accountGroup: ledger.accountGroup.name,
+                    accountGroupNature: accountGroupNature,
+                    openingBalance: parseFloat(ledger.openingBalance.toString()),
+                    currentBalance: calculatedBalance,
+                    balanceAmount: balanceAmount,
+                    balanceType: balanceType,
+                    isBalanceMatched: isBalanceMatched,
+                    storedBalance: storedBalance,
+                };
+            });
+
+        // Check for any balance mismatches
+        const balanceMismatches = trialBalance.filter(
+            (ledger) => !ledger.isBalanceMatched
         );
-        const creditEntries = ledger.JournalEntry.filter(
-          (entry) => entry.type === "CREDIT"
-        );
 
-        const totalDebits = debitEntries.reduce(
-          (sum, entry) => sum + entry.amount,
-          0
-        );
-        const totalCredits = creditEntries.reduce(
-          (sum, entry) => sum + entry.amount,
-          0
-        );
-
-        // Calculate current balance from journal entries only
-        // Opening balance is already included in journal entries, so no need to add it separately
-        const calculatedBalance = totalDebits - totalCredits;
-
-        // Determine balance type based on account group nature
-        const accountGroupNature = ledger.accountGroup.nature?.toLowerCase();
-
-        // Define debit nature accounts: assets, expenses, drawings
-        // Define credit nature accounts: liabilities, capital, income
-        const debitNatureAccounts = ["Assets", "Expenses", "Drawings"];
-        const creditNatureAccounts = ["Liabilities", "Capital", "Income"];
-
-        let balanceType: string;
-        if (debitNatureAccounts.includes(accountGroupNature)) {
-          // For debit nature accounts: positive balance = debit, negative balance = credit
-          balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
-        } else if (creditNatureAccounts.includes(accountGroupNature)) {
-          // For credit nature accounts: positive balance = credit, negative balance = debit
-          balanceType = calculatedBalance >= 0 ? "CREDIT" : "DEBIT";
-        } else {
-          // Default fallback
-          balanceType = calculatedBalance >= 0 ? "DEBIT" : "CREDIT";
-        }
-
-        // Get absolute value for balance amount
-        const balanceAmount = Math.abs(calculatedBalance);
-
-        // Check if calculated balance matches stored balance (stored balance is always positive)
-        const storedBalance = parseFloat(ledger.balance?.toString() || "0");
-        const isBalanceMatched = Math.abs(balanceAmount - storedBalance) < 0.01; // Compare absolute values
-
-        return {
-          id: ledger.id,
-          name: ledger.name,
-          code: ledger.code,
-          accountGroup: ledger.accountGroup.name,
-          accountGroupNature: accountGroupNature,
-          openingBalance: parseFloat(ledger.openingBalance.toString()),
-          currentBalance: calculatedBalance,
-          balanceAmount: balanceAmount,
-          balanceType: balanceType,
-          isBalanceMatched: isBalanceMatched,
-          storedBalance: storedBalance,
-        };
-      });
-
-    // Calculate totals based on balance type
-    const totalDebitBalance = trialBalance
-      .filter((ledger) => ledger.balanceType === "DEBIT")
-      .reduce((sum, ledger) => sum + ledger.balanceAmount, 0);
-
-    const totalCreditBalance = trialBalance
-      .filter((ledger) => ledger.balanceType === "CREDIT")
-      .reduce((sum, ledger) => sum + ledger.balanceAmount, 0);
-
-    // Check for any balance mismatches
-    const balanceMismatches = trialBalance.filter(
-      (ledger) => !ledger.isBalanceMatched
-    );
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ledgers: trialBalance,
-        totals: {
-          totalDebitBalance,
-          totalCreditBalance,
-          difference: totalDebitBalance - totalCreditBalance,
-        },
-        balanceValidation: {
-          hasBalanceMismatches: balanceMismatches.length > 0,
-          mismatchedLedgers: balanceMismatches.map((ledger) => ({
-            id: ledger.id,
-            name: ledger.name,
-            calculated: ledger.currentBalance,
-            stored: ledger.storedBalance,
-          })),
-        },
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+        res.status(200).json({
+            success: true,
+            data: {
+                ledgers: trialBalance,
+                balanceValidation: {
+                    hasBalanceMismatches: balanceMismatches.length > 0,
+                    mismatchedLedgers: balanceMismatches.map((ledger) => ({
+                        id: ledger.id,
+                        name: ledger.name,
+                        calculated: ledger.currentBalance,
+                        stored: ledger.storedBalance,
+                    })),
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
 // GET trading A/c

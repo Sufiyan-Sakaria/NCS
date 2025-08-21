@@ -568,7 +568,7 @@ async function createSaleJournalEntries(
         }
     }
 
-    // 3. Cartage Paid A/c Dr (if cartage charged to customer)
+    // 3. Cartage Outward A/c Dr (if cartage charged to customer) - FIXED: Should be expense account
     if (cartageAmount > 0) {
         let cartageLedger = await tx.ledger.findFirst({
             where: {
@@ -577,32 +577,32 @@ async function createSaleJournalEntries(
             },
         });
 
-        // Create Cartage Outward ledger if not found
+        // Create Cartage Outward ledger if not found - FIXED: Under Expenses, not Income
         if (!cartageLedger) {
-            // Ensure "Indirect Incomes" group exists
-            let incomeGroup = await tx.accountGroup.findFirst({
-                where: { branchId, groupType: "IndirectIncomes" },
+            // Ensure "Indirect Expenses" group exists
+            let expensesGroup = await tx.accountGroup.findFirst({
+                where: { branchId, groupType: "IndirectExpenses" },
             });
 
-            if (!incomeGroup) {
-                // Get root "Income" group code
-                const rootIncomeGroup = await tx.accountGroup.findFirst({
-                    where: { branchId, groupType: null, nature: "Income" },
+            if (!expensesGroup) {
+                // Get root "Expenses" group code
+                const rootExpensesGroup = await tx.accountGroup.findFirst({
+                    where: { branchId, groupType: null, nature: "Expenses" },
                 });
 
-                if (!rootIncomeGroup) {
-                    throw new AppError("Root Income group not found", 404);
+                if (!rootExpensesGroup) {
+                    throw new AppError("Root Expenses group not found", 404);
                 }
 
-                // Generate code for Indirect Incomes under root
-                const groupCode = await generateNextCode(tx, rootIncomeGroup.code, branchId);
+                // Generate code for Indirect Expenses under root
+                const groupCode = await generateNextCode(tx, rootExpensesGroup.code, branchId);
 
-                incomeGroup = await tx.accountGroup.create({
+                expensesGroup = await tx.accountGroup.create({
                     data: {
-                        name: "Indirect Incomes",
+                        name: "Indirect Expenses",
                         code: groupCode,
-                        nature: "Income",
-                        groupType: "IndirectIncomes",
+                        nature: "Expenses",
+                        groupType: "IndirectExpenses",
                         branchId,
                         createdBy: userId,
                     },
@@ -610,7 +610,7 @@ async function createSaleJournalEntries(
             }
 
             // Create Cartage Outward ledger
-            const ledgerCode = await generateNextCode(tx, incomeGroup.code, branchId);
+            const ledgerCode = await generateNextCode(tx, expensesGroup.code, branchId);
 
             cartageLedger = await tx.ledger.create({
                 data: {
@@ -619,31 +619,33 @@ async function createSaleJournalEntries(
                     type: "CartageOutward",
                     branchId,
                     createdBy: userId,
-                    accountGroupId: incomeGroup.id,
+                    accountGroupId: expensesGroup.id,
                 },
             });
         }
 
+        // FIXED: Debit Cartage Outward (expense), not Customer
         journalEntries.push({
             date,
             journalBookId,
-            ledgerId: customerLedgerId,
+            ledgerId: cartageLedger.id, // FIXED: Was customerLedgerId
             type: EntryType.DEBIT,
             amount: cartageAmount,
-            preBalance: customerLedger.balance.toNumber() + grandTotal,
+            preBalance: cartageLedger.balance.toNumber(), // FIXED: Correct preBalance
             narration: `Cartage on Sale Invoice ${invoiceNumber}`,
             createdBy: userId,
             invoiceId,
         });
 
+        // FIXED: Credit Customer (reducing their debt from the cartage recovery)
         journalEntries.push({
             date,
             journalBookId,
-            ledgerId: cartageLedger.id,
+            ledgerId: customerLedgerId,
             type: EntryType.CREDIT,
             amount: cartageAmount,
-            preBalance: cartageLedger.balance.toNumber(),
-            narration: `Cartage on Sale Invoice ${invoiceNumber}`,
+            preBalance: customerLedger.balance.toNumber() + grandTotal, // After first customer entry
+            narration: `Cartage recovery on Sale Invoice ${invoiceNumber}`,
             createdBy: userId,
             invoiceId,
         });
@@ -756,10 +758,14 @@ async function createSaleJournalEntries(
         }
     }
 
-    // Update main ledger balances
+    // Update main ledger balances - FIXED: Account for cartage credit to customer
+    const finalCustomerBalance = cartageAmount > 0
+        ? customerLedger.balance.toNumber() + grandTotal - cartageAmount
+        : customerLedger.balance.toNumber() + grandTotal;
+
     await tx.ledger.update({
         where: { id: customerLedgerId },
-        data: { balance: customerLedger.balance.toNumber() + grandTotal },
+        data: { balance: finalCustomerBalance },
     });
 
     await tx.ledger.update({
@@ -1113,7 +1119,7 @@ async function createPurchaseJournalEntries(
     }
 }
 
-// SALE RETURN journal entries
+// SALE RETURN journal entries - FIXED: Corrected cartage account group
 async function createSaleReturnJournalEntries(
     tx: Prisma.TransactionClient,
     journalEntries: any[],
@@ -1251,7 +1257,7 @@ async function createSaleReturnJournalEntries(
         }
     }
 
-    // 3. Cartage Outward A/c Dr (reverse cartage on sales)
+    // 3. Cartage Outward A/c Dr (reverse cartage on sales) - FIXED: Should be under Expenses
     if (cartageAmount > 0) {
         let cartageLedger = await tx.ledger.findFirst({
             where: {
@@ -1260,32 +1266,32 @@ async function createSaleReturnJournalEntries(
             },
         });
 
-        // Create Cartage Outward ledger if not found
+        // Create Cartage Outward ledger if not found - FIXED: Under Expenses, not Income
         if (!cartageLedger) {
-            // Ensure "Indirect Incomes" group exists
-            let incomeGroup = await tx.accountGroup.findFirst({
-                where: { branchId, groupType: "IndirectIncomes" },
+            // Ensure "Indirect Expenses" group exists
+            let expensesGroup = await tx.accountGroup.findFirst({
+                where: { branchId, groupType: "IndirectExpenses" },
             });
 
-            if (!incomeGroup) {
-                // Get root "Income" group code
-                const rootIncomeGroup = await tx.accountGroup.findFirst({
-                    where: { branchId, groupType: null, nature: "Income" },
+            if (!expensesGroup) {
+                // Get root "Expenses" group code
+                const rootExpensesGroup = await tx.accountGroup.findFirst({
+                    where: { branchId, groupType: null, nature: "Expenses" },
                 });
 
-                if (!rootIncomeGroup) {
-                    throw new AppError("Root Income group not found", 404);
+                if (!rootExpensesGroup) {
+                    throw new AppError("Root Expenses group not found", 404);
                 }
 
-                // Generate code for Indirect Incomes under root
-                const groupCode = await generateNextCode(tx, rootIncomeGroup.code, branchId);
+                // Generate code for Indirect Expenses under root
+                const groupCode = await generateNextCode(tx, rootExpensesGroup.code, branchId);
 
-                incomeGroup = await tx.accountGroup.create({
+                expensesGroup = await tx.accountGroup.create({
                     data: {
-                        name: "Indirect Incomes",
+                        name: "Indirect Expenses",
                         code: groupCode,
-                        nature: "Income",
-                        groupType: "IndirectIncomes",
+                        nature: "Expenses",
+                        groupType: "IndirectExpenses",
                         branchId,
                         createdBy: userId,
                     },
@@ -1293,7 +1299,7 @@ async function createSaleReturnJournalEntries(
             }
 
             // Create Cartage Outward ledger
-            const ledgerCode = await generateNextCode(tx, incomeGroup.code, branchId);
+            const ledgerCode = await generateNextCode(tx, expensesGroup.code, branchId);
 
             cartageLedger = await tx.ledger.create({
                 data: {
@@ -1302,7 +1308,7 @@ async function createSaleReturnJournalEntries(
                     type: "CartageOutward",
                     branchId,
                     createdBy: userId,
-                    accountGroupId: incomeGroup.id,
+                    accountGroupId: expensesGroup.id,
                 },
             });
         }
